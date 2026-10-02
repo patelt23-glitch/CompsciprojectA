@@ -526,394 +526,486 @@
   }
 
 
-  function dashboard() {
-    if (!state.previewAccess) {
+ function dashboard() {
+  if (!state.previewAccess) {
+    app.go("login");
+    return;
+  }
 
-      app.go(
-        "login"
-      );
+  const completed = state.results.length;
 
-      return;
-    }
+  const averageAccuracy = completed
+    ? Math.round(
+        state.results.reduce(
+          (total, result) => total + result.accuracy,
+          0
+        ) / completed
+      )
+    : 0;
 
-
-    const completed =
-      state.results.length;
-
-
-    const averageAccuracy =
-      completed
-
-        ? Math.round(
-
-            state.results.reduce(
-              (total, result) =>
-                total +
-                result.accuracy,
-              0
-            ) / completed
-
-          )
-
-        : 0;
+  const averageTime = completed
+    ? (
+        state.results.reduce(
+          (total, result) => total + result.average,
+          0
+        ) / completed
+      ).toFixed(1)
+    : "0.0";
 
 
-    const averageTime =
-      completed
+  main.innerHTML = `
+    <div class="page-head">
 
-        ? (
+      <div>
+        ${app.eyebrow("Clinician workspace")}
 
-            state.results.reduce(
-              (total, result) =>
-                total +
-                result.average,
-              0
-            ) / completed
+        <h1>
+          Dashboard
+        </h1>
 
-          ).toFixed(1)
-
-        : "0.0";
-
-
-    main.innerHTML = `
-      <div class="page-head">
-
-        <div>
-
-          ${app.eyebrow(
-            "Clinician workspace"
-          )}
-
-          <h1>
-            Dashboard
-          </h1>
-
-          <p>
-            Create patient sessions
-            and review assessment activity.
-          </p>
-
-        </div>
+        <p>
+          Create patient sessions
+          and review assessment activity.
+        </p>
+      </div>
 
 
-        <div class="dashboard-buttons">
+      <div class="dashboard-buttons">
 
-          <a
-            class="button secondary"
-            href="#profile"
-          >
-            Profile
-          </a>
+        <a
+          class="button secondary"
+          href="#profile"
+        >
+          Profile
+        </a>
 
-          <button
-            class="button secondary"
-            id="logout"
-          >
-            Sign out
-          </button>
+        <button
+          class="button secondary"
+          id="logout"
+        >
+          Sign out
+        </button>
 
-        </div>
+      </div>
+
+    </div>
+
+
+    <section class="summary-grid">
+
+      <div class="summary-card blue-summary">
+
+        <span>
+          Completed Tests
+        </span>
+
+        <strong>
+          ${completed}
+        </strong>
+
+        <small>
+          Assessment sessions
+        </small>
 
       </div>
 
 
-      <section class="summary-grid">
+      <div class="summary-card purple-summary">
 
-        <div class="summary-card blue-summary">
+        <span>
+          Average Accuracy
+        </span>
 
-          <span>
-            Completed Tests
-          </span>
+        <strong>
+          ${averageAccuracy}%
+        </strong>
 
-          <strong>
-            ${completed}
-          </strong>
+        <small>
+          Completed tests
+        </small>
 
-          <small>
-            Assessment sessions
-          </small>
+      </div>
+
+
+      <div class="summary-card teal-summary">
+
+        <span>
+          Average Response
+        </span>
+
+        <strong>
+          ${averageTime}s
+        </strong>
+
+        <small>
+          Selection time
+        </small>
+
+      </div>
+
+
+      <div class="summary-card gold-summary">
+
+        <span>
+          Pending Sessions
+        </span>
+
+        <strong id="pending-count">
+          ${state.pendingSessions.length}
+        </strong>
+
+        <small>
+          Waiting for completion
+        </small>
+
+      </div>
+
+    </section>
+
+
+    <section class="panel quick-actions-panel">
+
+      ${app.eyebrow("Shortcuts")}
+
+      <h2>
+        Quick Actions
+      </h2>
+
+      <p>
+        Quickly create a session,
+        preview the test,
+        or review completed results.
+      </p>
+
+      <div class="quick-actions">
+
+        <button
+          type="button"
+          class="quick-action"
+          id="quick-new-session"
+        >
+          + New Patient Session
+        </button>
+
+        <button
+          type="button"
+          class="quick-action"
+          id="quick-preview"
+        >
+          ▶ Preview Patient Test
+        </button>
+
+        <button
+          type="button"
+          class="quick-action"
+          id="quick-results"
+        >
+          ▦ Review Results
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <div class="dashboard-grid">
+
+      <section
+        class="panel"
+        id="new-session-panel"
+      >
+
+        ${app.eyebrow("New session")}
+
+        <h2>
+          Generate Patient Link
+        </h2>
+
+        <p>
+          Select the test settings
+          and generate a patient link.
+        </p>
+
+
+        <label
+          class="label"
+          for="test-language"
+        >
+          Test Language
+        </label>
+
+        <select id="test-language">
+
+          <option>
+            English
+          </option>
+
+          <option>
+            Spanish
+          </option>
+
+        </select>
+
+
+        <label
+          class="label"
+          for="audio-voice"
+        >
+          Audio Voice
+        </label>
+
+        <select id="audio-voice">
+
+          <option>
+            Female
+          </option>
+
+          <option>
+            Male
+          </option>
+
+          <option>
+            No Voice
+          </option>
+
+        </select>
+
+
+        <label
+          class="label"
+          for="patient-dob"
+        >
+          Patient Date of Birth
+        </label>
+
+        <input
+          id="patient-dob"
+          type="date"
+        >
+
+
+        <div class="actions">
+
+          <button
+            class="primary"
+            id="generate"
+          >
+            Generate Link →
+          </button>
 
         </div>
 
 
-        <div class="summary-card purple-summary">
+        <div
+          class="link-output hidden"
+          id="link-output"
+        >
 
-          <span>
-            Average Accuracy
-          </span>
-
-          <strong>
-            ${averageAccuracy}%
-          </strong>
-
-          <small>
-            Completed tests
-          </small>
-
-        </div>
-
-
-        <div class="summary-card teal-summary">
-
-          <span>
-            Average Response
-          </span>
-
-          <strong>
-            ${averageTime}s
-          </strong>
-
-          <small>
-            Selection time
-          </small>
-
-        </div>
-
-
-        <div class="summary-card gold-summary">
-
-          <span>
-            Pending Sessions
-          </span>
-
-          <strong id="pending-count">
-            ${state.pendingSessions.length}
-          </strong>
-
-          <small>
-            Waiting for completion
-          </small>
-
-        </div>
-
-      </section>
-
-
-      <div class="dashboard-grid">
-
-        <section class="panel">
-
-          ${app.eyebrow(
-            "New session"
-          )}
-
-          <h2>
-            Generate Patient Link
-          </h2>
-
-          <p>
-            Select the test settings
-            and generate a patient link.
-          </p>
-
-
-          <label class="label">
-            Test Language
-          </label>
-
-          <select id="test-language">
-
-            <option>
-              English
-            </option>
-
-            <option>
-              Spanish
-            </option>
-
-          </select>
-
-
-          <label class="label">
-            Audio Voice
-          </label>
-
-          <select id="audio-voice">
-
-            <option>
-              Female
-            </option>
-
-            <option>
-              Male
-            </option>
-
-            <option>
-              No Voice
-            </option>
-
-          </select>
-
-
-          <label class="label">
-            Patient Date of Birth
+          <label
+            class="label"
+            for="session-id"
+          >
+            Session ID
           </label>
 
           <input
-            id="patient-dob"
-            type="date"
+            id="session-id"
+            readonly
+          >
+
+
+          <label
+            class="label"
+            for="patient-link"
+          >
+            Patient Access Link
+          </label>
+
+          <input
+            id="patient-link"
+            readonly
           >
 
 
           <div class="actions">
 
             <button
-              class="primary"
-              id="generate"
+              id="copy"
+              class="button secondary"
             >
-              Generate Link →
+              Copy Link
             </button>
 
-          </div>
 
-
-          <div
-            class="link-output hidden"
-            id="link-output"
-          >
-
-            <label class="label">
-              Patient Access Link
-            </label>
-
-            <input
-              id="patient-link"
-              readonly
-            >
-
-
-            <div class="actions">
-
-              <button
-                id="copy"
-                class="button secondary"
-              >
-                Copy Link
-              </button>
-
-
-              ${app.button(
-                "Open Test",
-                "instructions",
-                true
-              )}
-
-            </div>
-
-
-            <p
-              id="copy-status"
-              class="status"
-            ></p>
+            ${app.button(
+              "Open Test",
+              "instructions",
+              true
+            )}
 
           </div>
 
-        </section>
+
+          <p
+            id="copy-status"
+            class="status"
+          ></p>
+
+        </div>
+
+      </section>
 
 
-        <section class="panel">
+      <section class="panel">
 
-          ${app.eyebrow(
-            "Activity"
-          )}
+        ${app.eyebrow("Activity")}
 
-          <h2>
-            Pending Sessions
-          </h2>
+        <h2>
+          Pending Sessions
+        </h2>
 
-          <div id="pending-list"></div>
+        <div id="pending-list"></div>
 
 
-          <h2 class="results-heading">
-            Completed Assessments
-          </h2>
-
-          <div id="result-list"></div>
-
-        </section>
-
-      </div>
-    `;
+        <h2 class="results-heading">
+          Completed Assessments
+        </h2>
 
 
-    const pendingList =
-      document.querySelector(
-        "#pending-list"
-      );
+        <input
+          id="result-search"
+          type="search"
+          placeholder="Search Test..."
+          aria-label="Search completed assessments"
+        >
 
 
-    function renderPending() {
+        <div id="result-list"></div>
 
-      if (!state.pendingSessions.length) {
+      </section>
 
-        pendingList.innerHTML = `
-          <div class="empty">
-            No pending sessions yet.
-          </div>
-        `;
-
-        return;
-      }
+    </div>
+  `;
 
 
-      pendingList.innerHTML =
+  const pendingList =
+    document.querySelector(
+      "#pending-list"
+    );
 
-        state.pendingSessions
-
-          .map(
-            (session) => `
-
-              <div class="simple-session-row">
-
-                <div>
-
-                  <strong>
-                    ${session.id}
-                  </strong>
-
-                  <p>
-                    ${session.language}
-                    ·
-                    ${session.voice}
-                  </p>
-
-                </div>
+  const resultList =
+    document.querySelector(
+      "#result-list"
+    );
 
 
-                <span class="pending-badge">
-                  Pending
-                </span>
+  function renderPending() {
+    if (!state.pendingSessions.length) {
+      pendingList.innerHTML = `
+        <div class="empty">
+          No pending sessions yet.
+        </div>
+      `;
+
+      return;
+    }
+
+
+    pendingList.innerHTML =
+      state.pendingSessions
+        .map(
+          (session) => `
+
+            <div class="simple-session-row">
+
+              <div>
+
+                <strong>
+                  ${session.id}
+                </strong>
+
+                <p>
+                  ${session.language}
+                  ·
+                  ${session.voice}
+                </p>
+
+                <small>
+                  ${
+                    session.created
+                      ? new Date(
+                          session.created
+                        ).toLocaleString()
+                      : ""
+                  }
+                </small>
 
               </div>
 
-            `
-          )
 
-          .join("");
-    }
+              <span class="pending-badge">
+                ${session.status || "Pending"}
+              </span>
 
+            </div>
 
-    renderPending();
-
-
-    const resultList =
-      document.querySelector(
-        "#result-list"
-      );
+          `
+        )
+        .join("");
+  }
 
 
-    if (!state.results.length) {
+  function renderResults(searchValue = "") {
+    const search =
+      searchValue
+        .trim()
+        .toLowerCase();
 
+
+    const filteredResults =
+      state.results
+        .map(
+          (result, index) => ({
+            result,
+            index
+          })
+        )
+        .filter(
+          ({ result, index }) => {
+
+            const name =
+              result.sessionId ||
+              `Test ${index + 1}`;
+
+            return name
+              .toLowerCase()
+              .includes(search);
+          }
+        );
+
+
+    if (!filteredResults.length) {
       resultList.innerHTML = `
         <div class="empty">
-          No completed assessments yet.
+
+          ${
+            state.results.length
+              ? "No matching assessments found."
+              : "No completed assessments yet."
+          }
+
         </div>
       `;
+
+      return;
     }
 
 
-    state.results.forEach(
-      (result, index) => {
+    resultList.innerHTML = "";
+
+
+    filteredResults.forEach(
+      ({ result, index }) => {
 
         const row =
           document.createElement(
@@ -930,11 +1022,14 @@
           <div>
 
             <strong>
-              Test ${index + 1}
+              ${
+                result.sessionId ||
+                `Test ${index + 1}`
+              }
             </strong>
 
-            <p>
 
+            <p>
               Accuracy:
               ${result.accuracy}%
 
@@ -942,7 +1037,17 @@
 
               ${result.matches}
               pairs matched
+            </p>
 
+
+            <p class="small">
+              Mistakes:
+              ${result.mistakes}
+
+              ·
+
+              Average response:
+              ${Number(result.average).toFixed(1)}s
             </p>
 
           </div>
@@ -962,112 +1067,190 @@
         );
       }
     );
-
-
-    document.querySelector(
-      "#logout"
-    ).onclick = () => {
-
-      state.previewAccess =
-        false;
-
-
-      app.go(
-        "home"
-      );
-    };
-
-
-    document.querySelector(
-      "#generate"
-    ).onclick = () => {
-
-      const language =
-        document.querySelector(
-          "#test-language"
-        ).value;
-
-      const voice =
-        document.querySelector(
-          "#audio-voice"
-        ).value;
-
-      const number =
-        Math.floor(
-          1000 +
-          Math.random() * 9000
-        );
-
-
-      state.pendingSessions.unshift({
-        id: `VSA-${number}`,
-        language,
-        voice
-      });
-
-
-      document
-        .querySelector(
-          "#link-output"
-        )
-        .classList.remove(
-          "hidden"
-        );
-
-
-      document.querySelector(
-        "#patient-link"
-      ).value =
-        location.href.split("#")[0] +
-        "#instructions";
-
-
-      document.querySelector(
-        "#pending-count"
-      ).textContent =
-        state.pendingSessions.length;
-
-
-      renderPending();
-    };
-
-
-    document.querySelector(
-      "#copy"
-    ).onclick = async () => {
-
-      const field =
-        document.querySelector(
-          "#patient-link"
-        );
-
-
-      try {
-
-        await navigator.clipboard.writeText(
-          field.value
-        );
-
-
-        document.querySelector(
-          "#copy-status"
-        ).textContent =
-          "Patient link copied.";
-
-      } catch {
-
-        field.select();
-
-
-        document.querySelector(
-          "#copy-status"
-        ).textContent =
-          "Select and copy the link.";
-
-      }
-    };
   }
 
+
+  renderPending();
+  renderResults();
+
+
+  document.querySelector(
+    "#result-search"
+  ).addEventListener(
+    "input",
+    (event) => {
+
+      renderResults(
+        event.target.value
+      );
+
+    }
+  );
+
+
+  document.querySelector(
+    "#quick-new-session"
+  ).onclick = () => {
+
+    document.querySelector(
+      "#new-session-panel"
+    ).scrollIntoView({
+      behavior: "smooth"
+    });
+
+  };
+
+
+  document.querySelector(
+    "#quick-preview"
+  ).onclick = () => {
+
+    app.go(
+      "instructions"
+    );
+
+  };
+
+
+  document.querySelector(
+    "#quick-results"
+  ).onclick = () => {
+
+    document.querySelector(
+      "#result-search"
+    ).scrollIntoView({
+      behavior: "smooth"
+    });
+
+  };
+
+
+  document.querySelector(
+    "#logout"
+  ).onclick = () => {
+
+    state.previewAccess =
+      false;
+
+    app.go(
+      "home"
+    );
+
+  };
+
+
+  document.querySelector(
+    "#generate"
+  ).onclick = () => {
+
+    const language =
+      document.querySelector(
+        "#test-language"
+      ).value;
+
+
+    const voice =
+      document.querySelector(
+        "#audio-voice"
+      ).value;
+
+
+    const dob =
+      document.querySelector(
+        "#patient-dob"
+      ).value;
+
+
+    const number =
+      Math.floor(
+        1000 +
+        Math.random() * 9000
+      );
+
+
+    const sessionId =
+      `VSA-${number}`;
+
+
+    state.pendingSessions.unshift({
+      id: sessionId,
+      language,
+      voice,
+      dob,
+      created:
+        new Date().toISOString(),
+      status:
+        "Pending"
+    });
+
+
+    document.querySelector(
+      "#session-id"
+    ).value =
+      sessionId;
+
+
+    document.querySelector(
+      "#patient-link"
+    ).value =
+      location.href.split("#")[0] +
+      "#instructions";
+
+
+    document
+      .querySelector(
+        "#link-output"
+      )
+      .classList.remove(
+        "hidden"
+      );
+
+
+    document.querySelector(
+      "#pending-count"
+    ).textContent =
+      state.pendingSessions.length;
+
+
+    renderPending();
+  };
+
+
+  document.querySelector(
+    "#copy"
+  ).onclick = async () => {
+
+    const field =
+      document.querySelector(
+        "#patient-link"
+      );
+
+
+    try {
+
+      await navigator.clipboard.writeText(
+        field.value
+      );
+
+
+      document.querySelector(
+        "#copy-status"
+      ).textContent =
+        "Patient link copied.";
+
+    } catch {
+
+      field.select();
+
+
+      document.querySelector(
+        "#copy-status"
+      ).textContent =
+        "Select and copy the link.";
+
+    }
+  };
+}
 
   function profile() {
     if (!state.previewAccess) {
