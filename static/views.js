@@ -46,7 +46,7 @@
             )}
 
             ${
-              !state.previewAccess
+              !state.authenticated
                 ? app.button(
                     "Clinician Login",
                     "login",
@@ -148,386 +148,98 @@
   function login() {
     main.innerHTML = `
       <section class="panel narrow clinician-box">
-
         ${app.eyebrow("Clinician portal")}
-
-        <h1>
-          Welcome back
-        </h1>
-
-        <p>
-          Sign in to manage patient sessions
-          and review completed results.
-        </p>
-
-
-        <label
-          class="label"
-          for="email"
-        >
-          Email address
-        </label>
-
-        <input
-          id="email"
-          type="email"
-          placeholder="doctor@clinic.org"
-        >
-
-
-        <label
-          class="label"
-          for="password"
-        >
-          Password
-        </label>
-
-        <div class="password-wrap">
-
-          <input
-            id="password"
-            type="password"
-            placeholder="Enter your password"
-          >
-
-          <button
-            type="button"
-            id="show-password"
-            class="show-password"
-          >
-            Show
-          </button>
-
-        </div>
-
-
-        <div class="login-row">
-
-          <label class="remember">
-
-            <input type="checkbox">
-
-            Remember me
-
-          </label>
-
-
-          <button
-            type="button"
-            id="forgot-password"
-            class="text-link"
-          >
-            Forgot password?
-          </button>
-
-        </div>
-
-
-        <p
-          id="login-error"
-          class="error-message"
-        ></p>
-
-
-        <button
-          id="login-button"
-          class="primary full"
-        >
-          Sign in →
-        </button>
-
-
-        <div class="account-choice">
-
-          New clinician?
-
-          <a href="#signup">
-            Create account
-          </a>
-
-        </div>
-
-      </section>
-    `;
-
-
-    const password =
-      document.querySelector("#password");
-
-    const showButton =
-      document.querySelector("#show-password");
-
-
-    showButton.onclick = () => {
-
-      if (password.type === "password") {
-
-        password.type = "text";
-
-        showButton.textContent =
-          "Hide";
-
-      } else {
-
-        password.type =
-          "password";
-
-        showButton.textContent =
-          "Show";
-      }
+        <h1>Welcome back</h1>
+        <p>Sign in to manage participant sessions and review saved results.</p>
+        <form id="login-form">
+          <label class="label" for="email">Email address</label>
+          <input id="email" type="email" autocomplete="username" required maxlength="150">
+          <label class="label" for="password">Password</label>
+          <div class="password-wrap">
+            <input id="password" type="password" autocomplete="current-password" required>
+            <button type="button" id="show-password" class="show-password">Show</button>
+          </div>
+          <label class="remember"><input id="remember" type="checkbox">Remember me</label>
+          <p id="login-error" class="error-message" role="alert"></p>
+          <button type="submit" id="login-button" class="primary full">Sign in →</button>
+        </form>
+        <div class="account-choice">New test giver? <a href="#signup">Create account</a></div>
+      </section>`;
+    document.querySelector('#show-password').onclick = event => {
+      const input = document.querySelector('#password');
+      input.type = input.type === 'password' ? 'text' : 'password';
+      event.target.textContent = input.type === 'password' ? 'Show' : 'Hide';
     };
-
-
-    document.querySelector(
-      "#forgot-password"
-    ).onclick = () => {
-
-      alert(
-        "Password recovery will be added with the backend."
-      );
-    };
-
-
-    document.querySelector(
-      "#login-button"
-    ).onclick = () => {
-
-      const email =
-        document.querySelector("#email")
-          .value
-          .trim();
-
-      const error =
-        document.querySelector(
-          "#login-error"
-        );
-
-
-      if (
-        !email ||
-        password.value.length < 8
-      ) {
-
-        error.textContent =
-          "Enter a valid email and a password with at least 8 characters.";
-
-        return;
-      }
-
-
-      state.clinician.email =
-        email;
-
-
-      if (!state.clinician.name) {
-
-        state.clinician.name =
-          "Clinician";
-      }
-
-
-      state.previewAccess =
-        true;
-
-
-      app.go(
-        "dashboard"
-      );
+    document.querySelector('#login-form').onsubmit = async event => {
+      event.preventDefault();
+      const button = document.querySelector('#login-button');
+      const error = document.querySelector('#login-error');
+      button.disabled = true;
+      error.textContent = '';
+      try {
+        const {user} = await app.api('/api/login/', {
+          email: document.querySelector('#email').value.trim(),
+          password: document.querySelector('#password').value,
+          remember: document.querySelector('#remember').checked
+        });
+        state.clinician = user;
+        state.authenticated = true;
+        app.go('dashboard');
+      } catch (failure) {
+        error.textContent = failure.message;
+      } finally { button.disabled = false; }
     };
   }
-
 
   function signup() {
     main.innerHTML = `
       <section class="panel narrow clinician-box">
-
-        ${app.eyebrow("New clinician")}
-
-        <h1>
-          Create your account
-        </h1>
-
-
-        <label
-          class="label"
-          for="full-name"
-        >
-          Full name
-        </label>
-
-        <input
-          id="full-name"
-          type="text"
-          placeholder="Dr. Jane Doe"
-        >
-
-
-        <label
-          class="label"
-          for="organization"
-        >
-          Organization
-        </label>
-
-        <input
-          id="organization"
-          type="text"
-          placeholder="Clinic or research lab"
-        >
-
-
-        <label
-          class="label"
-          for="signup-email"
-        >
-          Work email
-        </label>
-
-        <input
-          id="signup-email"
-          type="email"
-          placeholder="you@clinic.org"
-        >
-
-
-        <label
-          class="label"
-          for="signup-password"
-        >
-          Password
-        </label>
-
-        <input
-          id="signup-password"
-          type="password"
-          placeholder="At least 8 characters"
-        >
-
-
-        <label
-          class="label"
-          for="confirm-password"
-        >
-          Confirm password
-        </label>
-
-        <input
-          id="confirm-password"
-          type="password"
-          placeholder="Re-enter password"
-        >
-
-
-        <p
-          id="signup-error"
-          class="error-message"
-        ></p>
-
-
-        <button
-          id="create-account"
-          class="primary full"
-        >
-          Create account →
-        </button>
-
-
-        <div class="account-choice">
-
-          Already have an account?
-
-          <a href="#login">
-            Sign in
-          </a>
-
-        </div>
-
-      </section>
-    `;
-
-
-    document.querySelector(
-      "#create-account"
-    ).onclick = () => {
-
-      const name =
-        document.querySelector(
-          "#full-name"
-        ).value.trim();
-
-      const organization =
-        document.querySelector(
-          "#organization"
-        ).value.trim();
-
-      const email =
-        document.querySelector(
-          "#signup-email"
-        ).value.trim();
-
-      const password =
-        document.querySelector(
-          "#signup-password"
-        ).value;
-
-      const confirm =
-        document.querySelector(
-          "#confirm-password"
-        ).value;
-
-      const error =
-        document.querySelector(
-          "#signup-error"
-        );
-
-
-      if (!name || !email) {
-
-        error.textContent =
-          "Please complete the required fields.";
-
+        ${app.eyebrow('New test giver')}
+        <h1>Create your account</h1>
+        <form id="signup-form">
+          <label class="label" for="full-name">Full name</label>
+          <input id="full-name" autocomplete="name" required maxlength="150">
+          <label class="label" for="organization">Organization (optional)</label>
+          <input id="organization" autocomplete="organization" maxlength="200">
+          <label class="label" for="signup-email">Email address</label>
+          <input id="signup-email" type="email" autocomplete="username" required maxlength="150">
+          <label class="label" for="signup-password">Password</label>
+          <input id="signup-password" type="password" autocomplete="new-password" required minlength="8">
+          <p class="small">Use at least 8 characters. Avoid common, entirely numeric, or personal passwords.</p>
+          <label class="label" for="confirm-password">Confirm password</label>
+          <input id="confirm-password" type="password" autocomplete="new-password" required>
+          <p id="signup-error" class="error-message" role="alert"></p>
+          <button type="submit" id="create-account" class="primary full">Create account →</button>
+        </form>
+        <div class="account-choice">Already have an account? <a href="#login">Sign in</a></div>
+      </section>`;
+    document.querySelector('#signup-form').onsubmit = async event => {
+      event.preventDefault();
+      const error = document.querySelector('#signup-error');
+      const button = document.querySelector('#create-account');
+      const password = document.querySelector('#signup-password').value;
+      if (password !== document.querySelector('#confirm-password').value) {
+        error.textContent = 'Passwords do not match.';
         return;
       }
-
-
-      if (password.length < 8) {
-
-        error.textContent =
-          "Password must be at least 8 characters.";
-
-        return;
-      }
-
-
-      if (password !== confirm) {
-
-        error.textContent =
-          "Passwords do not match.";
-
-        return;
-      }
-
-
-      state.clinician = {
-        name,
-        organization,
-        email
-      };
-
-
-      state.previewAccess =
-        true;
-
-
-      app.go(
-        "dashboard"
-      );
+      error.textContent = '';
+      button.disabled = true;
+      try {
+        const {user} = await app.api('/api/signup/', {
+          name: document.querySelector('#full-name').value.trim(),
+          email: document.querySelector('#signup-email').value.trim(),
+          organization: document.querySelector('#organization').value.trim(), password
+        });
+        state.clinician = user;
+        state.authenticated = true;
+        app.go('dashboard');
+      } catch (failure) { error.textContent = failure.message; }
+      finally { button.disabled = false; }
     };
   }
 
-
- function dashboard() {
-  if (!state.previewAccess) {
+  function dashboard() {
+  if (!state.authenticated) {
     app.go("login");
     return;
   }
@@ -651,7 +363,7 @@
         </span>
 
         <strong id="pending-count">
-          ${state.pendingSessions.length}
+          ${state.pendingSessions.filter(session => session.status === "Pending").length}
         </strong>
 
         <small>
@@ -740,9 +452,7 @@
             English
           </option>
 
-          <option>
-            Spanish
-          </option>
+
 
         </select>
 
@@ -756,13 +466,7 @@
 
         <select id="audio-voice">
 
-          <option>
-            Female
-          </option>
 
-          <option>
-            Male
-          </option>
 
           <option>
             No Voice
@@ -773,14 +477,15 @@
 
         <label
           class="label"
-          for="patient-dob"
+          for="participant-id"
         >
-          Patient Date of Birth
+          Participant ID
         </label>
 
         <input
-          id="patient-dob"
-          type="date"
+          id="participant-id"
+          type="text" maxlength="64" placeholder="e.g. P001" required
+          pattern="[A-Za-z0-9_-]+"
         >
 
 
@@ -837,11 +542,7 @@
             </button>
 
 
-            ${app.button(
-              "Open Test",
-              "instructions",
-              true
-            )}
+            <a id="open-test" class="button secondary" target="_blank" rel="noopener noreferrer">Open Test</a>
 
           </div>
 
@@ -864,6 +565,7 @@
           Pending Sessions
         </h2>
 
+        <p class="small">Links expire after seven days and accept one completed assessment.</p>
         <div id="pending-list"></div>
 
 
@@ -880,6 +582,7 @@
         >
 
 
+        <a class="button secondary" href="/api/results/export/">Export all results CSV ↓</a>
         <div id="result-list"></div>
 
       </section>
@@ -921,7 +624,7 @@
               <div>
 
                 <strong>
-                  ${session.id}
+                  ${app.escapeHTML(session.participantId)}
                 </strong>
 
                 <p>
@@ -943,9 +646,11 @@
               </div>
 
 
-              <span class="pending-badge">
-                ${session.status || "Pending"}
-              </span>
+              <div>
+                <span class="pending-badge">${session.status}</span>
+                <p class="small">Expires: ${new Date(session.expires).toLocaleString()}</p>
+                ${session.status === 'Pending' ? `<a class="button secondary" href="${app.escapeHTML(session.url)}" target="_blank" rel="noopener noreferrer">Open test link</a>` : ''}
+              </div>
 
             </div>
 
@@ -977,7 +682,7 @@
               result.sessionId ||
               `Test ${index + 1}`;
 
-            return name
+            return (name + ' ' + result.participantId)
               .toLowerCase()
               .includes(search);
           }
@@ -1023,8 +728,7 @@
 
             <strong>
               ${
-                result.sessionId ||
-                `Test ${index + 1}`
+                app.escapeHTML(result.participantId) || `Test ${index + 1}`
               }
             </strong>
 
@@ -1055,7 +759,7 @@
 
           ${app.button(
             "View",
-            `results/${index}`,
+            `results/${result.id}`,
             true
           )}
 
@@ -1105,9 +809,7 @@
     "#quick-preview"
   ).onclick = () => {
 
-    app.go(
-      "instructions"
-    );
+    window.location.assign('/#instructions');
 
   };
 
@@ -1125,96 +827,44 @@
   };
 
 
-  document.querySelector(
-    "#logout"
-  ).onclick = () => {
-
-    state.previewAccess =
-      false;
-
-    app.go(
-      "home"
-    );
-
+  document.querySelector('#logout').onclick = async () => {
+    try {
+      await app.api('/api/logout/', {});
+      state.authenticated = false;
+      state.clinician = {name: '', email: '', organization: ''};
+      state.results = [];
+      state.pendingSessions = [];
+      app.go('home');
+    } catch (error) { window.alert(error.message); }
   };
 
-
-  document.querySelector(
-    "#generate"
-  ).onclick = () => {
-
-    const language =
-      document.querySelector(
-        "#test-language"
-      ).value;
-
-
-    const voice =
-      document.querySelector(
-        "#audio-voice"
-      ).value;
-
-
-    const dob =
-      document.querySelector(
-        "#patient-dob"
-      ).value;
-
-
-    const number =
-      Math.floor(
-        1000 +
-        Math.random() * 9000
-      );
-
-
-    const sessionId =
-      `VSA-${number}`;
-
-
-    state.pendingSessions.unshift({
-      id: sessionId,
-      language,
-      voice,
-      dob,
-      created:
-        new Date().toISOString(),
-      status:
-        "Pending"
-    });
-
-
-    document.querySelector(
-      "#session-id"
-    ).value =
-      sessionId;
-
-
-    document.querySelector(
-      "#patient-link"
-    ).value =
-      location.href.split("#")[0] +
-      "#instructions";
-
-
-    document
-      .querySelector(
-        "#link-output"
-      )
-      .classList.remove(
-        "hidden"
-      );
-
-
-    document.querySelector(
-      "#pending-count"
-    ).textContent =
-      state.pendingSessions.length;
-
-
-    renderPending();
+  const generate = document.querySelector('#generate');
+  const generationStatus = document.createElement('p');
+  generationStatus.className = 'status';
+  generationStatus.setAttribute('role', 'status');
+  generate.parentElement.after(generationStatus);
+  generate.onclick = async () => {
+    const participant = document.querySelector('#participant-id');
+    if (!participant.reportValidity()) return;
+    generate.disabled = true;
+    generationStatus.textContent = '';
+    try {
+      const invitation = await app.api('/api/invitations/', {
+        participantId: participant.value.trim(),
+        language: document.querySelector('#test-language').value,
+        voice: document.querySelector('#audio-voice').value
+      });
+      state.pendingSessions.unshift(invitation);
+      document.querySelector('#session-id').value = invitation.id;
+      document.querySelector('#patient-link').value = invitation.url;
+      document.querySelector('#open-test').href = invitation.url;
+      document.querySelector('#link-output').classList.remove('hidden');
+      document.querySelector('#pending-count').textContent = state.pendingSessions.filter(session => session.status === 'Pending').length;
+      generationStatus.textContent = `Link created for ${invitation.participantId}. Expires ${new Date(invitation.expires).toLocaleString()}.`;
+      renderPending();
+    } catch (error) { generationStatus.textContent = error.message; }
+    finally { generate.disabled = false; }
   };
-
 
   document.querySelector(
     "#copy"
@@ -1253,156 +903,43 @@
 }
 
   function profile() {
-    if (!state.previewAccess) {
-
-      app.go(
-        "login"
-      );
-
-      return;
-    }
-
-
+    if (!state.authenticated) { app.go('login'); return; }
+    const clinician = state.clinician;
     main.innerHTML = `
-      <section class="panel profile-page">
-
-        ${app.eyebrow(
-          "Clinician profile"
-        )}
-
-
-        <div class="profile-heading">
-
-          <div class="profile-circle">
-
-            ${
-              state.clinician.name
-                ? state.clinician.name
-                    .charAt(0)
-                    .toUpperCase()
-                : "C"
-            }
-
+      <section class="panel narrow profile-page">
+        ${app.eyebrow('Test giver profile')}
+        <h1>Profile</h1>
+        <form id="profile-form">
+          <label class="label" for="profile-name">Full name</label>
+          <input id="profile-name" required maxlength="150" value="${app.escapeHTML(clinician.name)}">
+          <label class="label" for="profile-org">Organization</label>
+          <input id="profile-org" maxlength="200" value="${app.escapeHTML(clinician.organization)}">
+          <label class="label" for="profile-email">Email address</label>
+          <input id="profile-email" type="email" required maxlength="150" value="${app.escapeHTML(clinician.email)}">
+          <div class="actions">
+            <button class="primary" id="save-profile">Save changes</button>
+            ${app.button('Dashboard', 'dashboard', true)}
           </div>
-
-
-          <div>
-
-            <h1>
-              Profile
-            </h1>
-
-            <p>
-              Update your basic clinician information.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <label
-          class="label"
-          for="profile-name"
-        >
-          Full name
-        </label>
-
-        <input
-          id="profile-name"
-          type="text"
-          value="${state.clinician.name || ""}"
-          placeholder="Dr. Jane Doe"
-        >
-
-
-        <label
-          class="label"
-          for="profile-org"
-        >
-          Organization
-        </label>
-
-        <input
-          id="profile-org"
-          type="text"
-          value="${state.clinician.organization || ""}"
-          placeholder="Clinic or research lab"
-        >
-
-
-        <label
-          class="label"
-          for="profile-email"
-        >
-          Email address
-        </label>
-
-        <input
-          id="profile-email"
-          type="email"
-          value="${state.clinician.email || ""}"
-          placeholder="doctor@clinic.org"
-        >
-
-
-        <div class="actions">
-
-          <button
-            class="primary"
-            id="save-profile"
-          >
-            Save Changes
-          </button>
-
-
-          ${app.button(
-            "Back to Dashboard",
-            "dashboard",
-            true
-          )}
-
-        </div>
-
-
-        <p
-          id="profile-status"
-          class="status"
-        ></p>
-
-      </section>
-    `;
-
-
-    document.querySelector(
-      "#save-profile"
-    ).onclick = () => {
-
-      state.clinician.name =
-        document.querySelector(
-          "#profile-name"
-        ).value.trim();
-
-
-      state.clinician.organization =
-        document.querySelector(
-          "#profile-org"
-        ).value.trim();
-
-
-      state.clinician.email =
-        document.querySelector(
-          "#profile-email"
-        ).value.trim();
-
-
-      document.querySelector(
-        "#profile-status"
-      ).textContent =
-        "Profile updated for this session.";
+          <p id="profile-status" class="status" role="status"></p>
+        </form>
+      </section>`;
+    document.querySelector('#profile-form').onsubmit = async event => {
+      event.preventDefault();
+      const status = document.querySelector('#profile-status');
+      const button = document.querySelector('#save-profile');
+      button.disabled = true;
+      try {
+        const {user} = await app.api('/api/profile/', {
+          name: document.querySelector('#profile-name').value.trim(),
+          organization: document.querySelector('#profile-org').value.trim(),
+          email: document.querySelector('#profile-email').value.trim()
+        });
+        state.clinician = user;
+        status.textContent = 'Profile saved.';
+      } catch (error) { status.textContent = error.message; }
+      finally { button.disabled = false; }
     };
   }
-
 
   function about() {
     main.innerHTML = `
@@ -1630,64 +1167,41 @@
   function complete(practice) {
     main.innerHTML = `
       <section class="panel narrow completion">
-
-        <div class="check">
-          ✓
-        </div>
-
-
-        ${app.eyebrow(
-          practice
-            ? "Ready for the next step"
-            : "All done"
-        )}
-
-
-        <h1>
-
-          ${
-            practice
-              ? "Practice completed"
-              : "Test completed"
-          }
-
-        </h1>
-
-
-        <p>
-
-          ${
-            practice
-
-              ? "You know how it works. When you're ready, begin the assessment."
-
-              : "Thank you for taking the assessment."
-          }
-
-        </p>
-
-
-        ${
-          practice
-
-            ? app.button(
-                "Begin Assessment →",
-                "study"
-              )
-
-            : app.button(
-                "Done",
-                "home"
-              )
-        }
-
-      </section>
-    `;
+        <div class="check">✓</div>
+        ${app.eyebrow(practice ? 'Ready for the next step' : 'All done')}
+        <h1>${practice ? 'Practice completed' : 'Test completed'}</h1>
+        <p>${practice ? "When you're ready, begin the assessment." : 'Thank you for taking the assessment.'}</p>
+        <p id="save-status" role="status"></p>
+        <button id="retry-save" class="primary hidden">Retry saving</button>
+        ${practice ? app.button('Begin Assessment →', 'study') : app.button('Done', 'home')}
+      </section>`;
+    if (practice) return;
+    const status = document.querySelector('#save-status');
+    const retry = document.querySelector('#retry-save');
+    const submission = state.pendingSubmission;
+    if (!submission) {
+      status.textContent = state.lastSaved ? 'Your result has been saved.' : 'Preview only. No result was submitted.';
+      return;
+    }
+    const save = async () => {
+      retry.classList.add('hidden');
+      status.textContent = 'Saving your result…';
+      try {
+        await app.api(`/api/invitations/${encodeURIComponent(submission.token)}/complete/`, {selections: submission.selections});
+        state.pendingSubmission = null;
+        state.lastSaved = true;
+        status.textContent = 'Your result has been saved. You may close this page.';
+      } catch (error) {
+        status.textContent = `Your result has not been saved: ${error.message} Keep this page open and retry.`;
+        retry.classList.remove('hidden');
+      }
+    };
+    retry.onclick = save;
+    save();
   }
 
-
-  function showResult(index) {
-    if (!state.previewAccess) {
+  function showResult(resultId) {
+    if (!state.authenticated) {
 
       app.go(
         "login"
@@ -1698,7 +1212,7 @@
 
 
     const result =
-      state.results[index];
+      state.results.find(result => String(result.id) === resultId);
 
 
     if (!result) {
@@ -1730,9 +1244,7 @@
       <section class="panel narrow">
 
         ${app.eyebrow(
-          `Completed assessment · Test ${
-            Number(index) + 1
-          }`
+          `Completed assessment · ${app.escapeHTML(result.participantId)}`
         )}
 
         <h1>
@@ -1818,61 +1330,10 @@
     `;
 
 
-    document.querySelector(
-      "#export"
-    ).onclick = () => {
-
-      const csv =
-        `test,correct_matches,mistakes,accuracy_percent,average_seconds\n${
-          Number(index) + 1
-        },${result.matches},${result.mistakes},${result.accuracy},${result.average.toFixed(
-          2
-        )}\n`;
-
-
-      const url =
-        URL.createObjectURL(
-
-          new Blob(
-            [csv],
-            {
-              type:
-                "text/csv;charset=utf-8"
-            }
-          )
-
-        );
-
-
-      const link =
-        document.createElement(
-          "a"
-        );
-
-
-      link.href =
-        url;
-
-
-      link.download =
-        `assessment-${
-          Number(index) + 1
-        }.csv`;
-
-
-      link.click();
-
-
-      setTimeout(
-        () =>
-          URL.revokeObjectURL(
-            url
-          ),
-        1000
-      );
+    document.querySelector('#export').onclick = () => {
+      window.location.assign(`/api/results/${result.id}/export/`);
     };
   }
-
 
   function updateNavigation() {
     const loginNav =
@@ -1894,7 +1355,7 @@
     }
 
 
-    if (state.previewAccess) {
+    if (state.authenticated) {
 
       loginNav.classList.add(
         "hidden"
@@ -1917,7 +1378,9 @@
   }
 
 
-  function route() {
+  let routeVersion = 0;
+  async function route() {
+    const version = ++routeVersion;
     state.cleanup();
 
     state.cleanup =
@@ -1926,8 +1389,27 @@
 
     const hash =
       location.hash.slice(1) ||
-      "home";
+      (location.pathname === '/dashboard/' ? 'dashboard' : state.invitationToken ? 'instructions' : 'home');
 
+    if (['dashboard', 'profile'].includes(hash) || hash.startsWith('results/')) {
+      main.textContent = 'Loading your workspace…';
+      try {
+        const {user} = await app.api('/api/session/');
+        if (version !== routeVersion) return;
+        state.authenticated = Boolean(user);
+        if (!user) { state.results = []; state.pendingSessions = []; app.go('login'); return; }
+        state.clinician = user;
+        const data = await app.api('/api/dashboard/');
+        if (version !== routeVersion) return;
+        state.results = data.results;
+        state.pendingSessions = data.invitations;
+      } catch (error) {
+        if (version !== routeVersion) return;
+        if (error.status === 401) { state.authenticated = false; app.go('login'); return; }
+        main.textContent = error.message;
+        return;
+      }
+    }
 
     updateNavigation();
 
@@ -2060,17 +1542,6 @@
     complete,
     showResult,
     route
-  };
-
-
-  app.init = function () {
-
-    window.addEventListener(
-      "hashchange",
-      route
-    );
-
-    route();
   };
 
 })();

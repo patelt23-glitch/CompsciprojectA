@@ -3,7 +3,9 @@ window.VisuospatialApp = window.VisuospatialApp || {};
 window.VisuospatialApp.state = {
   cleanup: () => {},
   results: [],
-  previewAccess: false
+  authenticated: false,
+  pendingSessions: [],
+  invitationToken: new URLSearchParams(location.search).get('invite')
 };
 
 window.VisuospatialApp.symbols = {
@@ -31,4 +33,35 @@ window.VisuospatialApp.sample = function (shape) {
 
 window.VisuospatialApp.go = function (route) {
   location.hash = route;
+};
+
+window.VisuospatialApp.escapeHTML = function (value) {
+  return String(value).replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+};
+
+window.VisuospatialApp.api = async function (path, data) {
+  const csrf = document.cookie.split('; ').find(cookie => cookie.startsWith('csrftoken='));
+  const response = await fetch(path, {
+    method: data === undefined ? 'GET' : 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Accept': 'application/json',
+      ...(data === undefined ? {} : {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf ? decodeURIComponent(csrf.slice(10)) : ''
+      })
+    },
+    ...(data === undefined ? {} : {body: JSON.stringify(data)})
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload.error || (response.status === 403
+      ? 'Your session could not be verified. Refresh the page and try again.'
+      : 'Unable to complete the request. Please try again.'));
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
 };

@@ -5,7 +5,7 @@
     return;
   }
 
-  function game(practice) {
+  async function game(practice) {
     const main = app.main;
     const state = app.state;
     const symbols = app.symbols;
@@ -19,6 +19,8 @@
     let attempts = 0;
     let last = 0;
     let times = [];
+    const selections = [];
+    state.lastSaved = false;
 
     state.cleanup = () => {
       alive = false;
@@ -33,12 +35,24 @@
       );
     };
 
-    const shapes = practice ? ["circle", "triangle", "square"] : ["up", "right", "triangle"];
-    const deck = [...shapes, ...shapes];
-
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [deck[i], deck[j]] = [deck[j], deck[i]];
+    let deck;
+    if (!practice && state.invitationToken) {
+      main.textContent = 'Opening your assessment…';
+      try {
+        const attempt = await app.api(`/api/invitations/${encodeURIComponent(state.invitationToken)}/start/`, {});
+        if (!alive) return;
+        deck = attempt.deck;
+      } catch (error) {
+        if (alive) main.textContent = error.message;
+        return;
+      }
+    } else {
+      const shapes = practice ? ['circle', 'triangle', 'square'] : ['up', 'right', 'triangle'];
+      deck = [...shapes, ...shapes];
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
     }
 
     main.innerHTML = `
@@ -129,6 +143,7 @@
         times.push((performance.now() - last) / 1000);
 
         const previous = first;
+        selections.push({first: previous, second: index, seconds: times[times.length - 1]});
         first = null;
 
         if (deck[previous] === deck[index]) {
@@ -154,14 +169,9 @@
               if (practice) {
                 app.go("practice-complete");
               } else {
-                state.results.push({
-                  date: new Date(),
-                  matches: matched,
-                  mistakes,
-                  attempts,
-                  accuracy: Math.round((matched / attempts) * 100),
-                  average: times.reduce((sum, value) => sum + value, 0) / times.length
-                });
+                if (state.invitationToken) {
+                  state.pendingSubmission = {token: state.invitationToken, selections};
+                }
                 app.go("complete");
               }
             }, 700);
