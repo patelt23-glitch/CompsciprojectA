@@ -71,3 +71,7 @@ Defaults are for local development. Before hosting, set `DJANGO_SECRET_KEY` to a
 - `static/views.js`: accounts, dashboard, invitations, completion and results.
 - `static/game.js`: practice and assessment interactions.
 - `static/app.css`: responsive page styling.
+
+## Contributors
+
+- **Harpreet** - Backend development: Django authentication, database models, participant invitation links, saved assessment results, and CSV export.
