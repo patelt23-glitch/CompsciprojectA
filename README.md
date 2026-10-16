@@ -1,5 +1,7 @@
 # Visuospatial Assessment
 
+**updated by Tanmay Patel**
+
 Django application with a card-matching assessment, test-giver accounts, participant invitations, saved results and CSV export.
 
 ## Run locally in VS Code
