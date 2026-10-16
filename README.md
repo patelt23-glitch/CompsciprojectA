@@ -75,3 +75,5 @@ Defaults are for local development. Before hosting, set `DJANGO_SECRET_KEY` to a
 ## Contributors
 
 - **Harpreet** - Backend development: Django authentication, database models, participant invitation links, saved assessment results, and CSV export.
+
+- **Anjal** - Contributed to the frontend design and development of the Visuospatial Card Matching web application. The frontend is complete, and backend development is nearing completion. Collaborated with team members to improve functionality and user experience.
