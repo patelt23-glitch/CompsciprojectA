@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Visuospatial Card Matching Test - Visual Memory Assessment{% endblock %}
+
+{% block content %}
+<!-- Hero Section (Slide 1 Design) -->
+<section style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; min-height: calc(85dvh - 68px); padding: 2rem 0;">
+  <div>
+    <span class="eyebrow">LOOK. REMEMBER. MATCH.</span>
+    <h1 style="margin-bottom: 1.25rem;">Visuospatial Card Matching Test</h1>
+    <p style="font-size: 1.15rem; color: var(--text-muted); margin-bottom: 2rem; max-width: 48ch;">
+      A short assessment of visual memory and matching. Study the shapes and find their pairs.
+    </p>
+
+    <div style="display: flex; gap: 1rem; align-items: center;">
+      <a href="/patient/sample-patient-token-2025/" class="btn btn-primary btn-lg" style="border-radius: var(--radius-md);">
+        Start Test
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </a>
+      <a href="/login/" class="btn btn-secondary btn-lg" style="border-radius: var(--radius-md);">
+        Clinician Login
+      </a>
+    </div>
+
+    <div style="margin-top: 2rem; display: flex; align-items: center; gap: 1.5rem; font-size: 0.85rem; color: var(--text-subtle);">
+      <div style="display: flex; align-items: center; gap: 0.4rem;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        <span>Latency-validated</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.4rem;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        <span>Anonymized tokens</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.4rem;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+        <span>Sub-millisecond timing</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Visual Deck (Exact reproduction of image-1-1.png) -->
+  <div style="background: rgba(241, 245, 249, 0.7); border: 1px solid var(--border-color); border-radius: 28px; padding: 2.5rem; box-shadow: var(--shadow-lg); display: flex; justify-content: center; align-items: center;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; width: 100%; max-width: 440px;">
+      <!-- Card 1: Circle -->
+      <div class="card" style="aspect-ratio: 1.25 / 1; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: 0;">
+        <svg width="58" height="58" viewBox="0 0 100 100" fill="none">
+          <circle cx="50" cy="50" r="42" fill="#5865f2" />
+        </svg>
+      </div>
+
+      <!-- Card 2: Triangle -->
+      <div class="card" style="aspect-ratio: 1.25 / 1; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: 0;">
+        <svg width="58" height="58" viewBox="0 0 100 100" fill="none">
+          <polygon points="50,10 90,85 10,85" fill="#eab308" />
+        </svg>
+      </div>
+
+      <!-- Card 3: Square -->
+      <div class="card" style="aspect-ratio: 1.25 / 1; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: 0;">
+        <svg width="58" height="58" viewBox="0 0 100 100" fill="none">
+          <rect x="15" y="15" width="70" height="70" rx="8" fill="#94a3b8" />
+        </svg>
+      </div>
+
+      <!-- Card 4: Plus -->
+      <div class="card" style="aspect-ratio: 1.25 / 1; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md); border-radius: var(--radius-lg); padding: 0;">
+        <svg width="58" height="58" viewBox="0 0 100 100" fill="none">
+          <path d="M38 15h24v23h23v24H62v23H38V62H15V38h23V15z" fill="#6366f1" />
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- About & Clinical Methodology Section -->
+<section id="about" style="margin-top: 4rem; padding-top: 3rem; border-top: 1px solid var(--border-color);">
+  <div style="max-width: 720px; margin-bottom: 2.5rem;">
+    <h2>Cognitive Assessment Architecture</h2>
+    <p style="margin-top: 0.5rem;">
+      Moving session state and results from ephemeral browser memory into validated, persistent server-side records.
+    </p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+    <div class="card card-hover">
+      <div style="width: 40px; height: 40px; border-radius: var(--radius-sm); background: var(--primary-subtle); display: flex; align-items: center; justify-content: center; color: var(--primary); margin-bottom: 1rem;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+      </div>
+      <h3 style="margin-bottom: 0.5rem;">Visual Working Memory</h3>
+      <p style="font-size: 0.9rem;">
+        Evaluates short-term recall and retention across progressive levels of complexity, from simple shapes to rotated directional geometry.
+      </p>
+    </div>
+
+    <div class="card card-hover">
+      <div style="width: 40px; height: 40px; border-radius: var(--radius-sm); background: #ecfdf5; display: flex; align-items: center; justify-content: center; color: var(--success); margin-bottom: 1rem;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+      </div>
+      <h3 style="margin-bottom: 0.5rem;">Sub-Millisecond Latency</h3>
+      <p style="font-size: 0.9rem;">
+        High-precision response times measured via high-resolution performance timers, persisting decision speed for every individual attempt.
+      </p>
+    </div>
+
+    <div class="card card-hover">
+      <div style="width: 40px; height: 40px; border-radius: var(--radius-sm); background: #fffbeb; display: flex; align-items: center; justify-content: center; color: var(--warning); margin-bottom: 1rem;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+      </div>
+      <h3 style="margin-bottom: 0.5rem;">Clinical CSV Export</h3>
+      <p style="font-size: 0.9rem;">
+        Streamlined data export for researchers and practitioners, with summary metrics and granular attempt rows ready for statistical tools.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- Information Section (Slide 2 & Slide 3) -->
+<section id="info" style="margin-top: 4rem; padding-top: 3rem; border-top: 1px solid var(--border-color); margin-bottom: 3rem;">
+  <div class="card" style="background: linear-gradient(135deg, #ffffff, #f8fafc); border: 1px solid var(--border-color); padding: 2.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
+      <div>
+        <h3 style="font-size: 1.4rem; margin-bottom: 0.5rem;">Ready to review patient assessments?</h3>
+        <p style="max-width: 60ch;">
+          Clinicians can generate expiring tokens, review age bracket comparisons, inspect response time trends, and download full spreadsheets.
+        </p>
+      </div>
+      <a href="/login/" class="btn btn-primary btn-lg">Go to Clinician Workspace</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
