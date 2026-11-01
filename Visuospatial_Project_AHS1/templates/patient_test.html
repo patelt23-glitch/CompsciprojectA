@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Patient Test - {{ patient_code }}{% endblock %}
+
+{% block content %}
+<div class="assessment-container">
+  <!-- Interactive Audio & Voice Controls Toolbar -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <span class="badge" style="background: var(--primary-subtle); color: var(--primary); font-weight: 600;">
+        {{ language }}
+      </span>
+      <span class="badge" style="background: var(--bg-subtle); color: var(--text-muted);">
+        Voice: {{ audio_voice }}
+      </span>
+      <span class="badge" style="background: var(--bg-subtle); color: var(--text-muted);">
+        {{ difficulty }}
+      </span>
+      <span id="voice-listening-badge" class="badge" style="display: none; background: #ecfdf5; color: var(--success); align-items: center; gap: 0.35rem; font-weight: 600;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; animation: pulse 1.5s infinite;"></span>
+        Listening
+      </span>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <button id="voice-input-toggle" type="button" class="btn btn-secondary btn-sm" title="Toggle voice control input (speak card numbers hands-free)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+        Voice Control
+      </button>
+
+      <button id="replay-audio-btn" type="button" class="btn btn-secondary btn-sm" title="Replay current audio instruction">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+        Replay Audio
+      </button>
+
+      <button id="mute-toggle-btn" type="button" class="btn btn-secondary btn-sm">
+        Mute Voice
+      </button>
+    </div>
+  </div>
+
+  <!-- View 1: Getting Started Instructions (Matches Slide 2 / image-2-2.png) -->
+  <div id="instructions-view" class="card" style="padding: 3rem 2.5rem; text-align: left; max-width: 640px; margin: 1.5rem auto; box-shadow: var(--shadow-lg);">
+    <span class="eyebrow eyebrow-patient">PATIENT TEST · GETTING STARTED</span>
+    <h1 id="focus-heading" style="font-size: 2.2rem; margin-bottom: 0.75rem;">A moment to focus</h1>
+    <p id="instructions-paragraph" style="font-size: 1.05rem; margin-bottom: 2rem; color: var(--text-muted);">
+      Before you begin, here is how the card matching test works.
+    </p>
+
+    <!-- Numbered Steps -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2.5rem;">
+      <div style="display: flex; gap: 1.25rem; align-items: flex-start;">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e7ff; color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; font-size: 0.95rem;">
+          1
+        </div>
+        <div style="font-size: 1rem; color: var(--text-main); line-height: 1.5; padding-top: 0.15rem;">
+          You will see cards for several seconds. Remember each shape and its direction.
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 1.25rem; align-items: flex-start;">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e7ff; color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; font-size: 0.95rem;">
+          2
+        </div>
+        <div style="font-size: 1rem; color: var(--text-main); line-height: 1.5; padding-top: 0.15rem;">
+          The cards will turn face down. Select two cards to reveal them.
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 1.25rem; align-items: flex-start;">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e7ff; color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; font-size: 0.95rem;">
+          3
+        </div>
+        <div style="font-size: 1rem; color: var(--text-main); line-height: 1.5; padding-top: 0.15rem;">
+          Match identical shapes and directions until all pairs are found.
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview Cards matching image-2-2.png -->
+    <div style="display: flex; justify-content: center; gap: 1.25rem; margin-bottom: 2.5rem;">
+      <div style="width: 100px; height: 80px; background: #ffffff; border: 1px solid var(--border-color); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm);">
+        <svg width="42" height="42" viewBox="0 0 100 100" fill="none">
+          <circle cx="50" cy="50" r="40" fill="#4f46e5" />
+        </svg>
+      </div>
+      <div style="width: 100px; height: 80px; background: #ffffff; border: 1px solid var(--border-color); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm);">
+        <svg width="42" height="42" viewBox="0 0 100 100" fill="none">
+          <circle cx="50" cy="50" r="40" fill="#4f46e5" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+      <button id="start-assessment-btn" class="btn btn-primary btn-lg" style="flex: 1;">
+        Begin Practice Round →
+      </button>
+      <button id="read-instructions-btn" type="button" class="btn btn-secondary" style="padding: 0.75rem 1.25rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+        Play Audio
+      </button>
+    </div>
+  </div>
+
+  <!-- View 2: Active Test & Card Matching (Matches Slide 2 / image-2-3.png) -->
+  <div id="game-view" style="display: none; text-align: left;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <span class="eyebrow" id="round-badge">PRACTICE ROUND</span>
+      <span class="badge" id="pairs-needed-badge" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 0.85rem; padding: 0.35rem 0.85rem; border: 1px solid var(--border-color);">
+        Find pairs
+      </span>
+    </div>
+
+    <h1 id="game-title" style="font-size: 2.2rem; margin-bottom: 0.5rem;">Study the cards</h1>
+    <p id="game-subhead" style="font-size: 1.05rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+      Remember each shape and where it appears.
+    </p>
+
+    <!-- Study Countdown Bar -->
+    <div id="countdown-container" style="display: none;">
+      <div style="display: flex; justify-content: space-between; font-size: 0.825rem; font-weight: 600; color: var(--primary); margin-bottom: 0.35rem;">
+        <span id="countdown-label">Study time: 5s remaining</span>
+        <span>Memorize positions</span>
+      </div>
+      <div class="study-countdown-bar">
+        <div id="countdown-fill" class="study-countdown-fill"></div>
+      </div>
+    </div>
+
+    <!-- Cards Grid Container -->
+    <div id="cards-container" class="cards-grid" role="region" aria-label="Card matching board"></div>
+
+    <!-- Bottom Status Bar (Matches image-2-3.png) -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 1.25rem; border-top: 1px solid var(--border-light); font-size: 0.9rem;">
+      <div>
+        <div id="matched-count-label" style="font-weight: 700; color: var(--text-main);">0 pairs matched</div>
+        <div id="action-cue-label" style="font-size: 0.825rem; color: var(--text-muted);" role="status" aria-live="polite">
+          Memorize the card locations.
+        </div>
+      </div>
+      <div id="round-status-label" style="color: var(--text-subtle); font-size: 0.85rem;">
+        Practice: Not scored
+      </div>
+    </div>
+  </div>
+
+  <!-- View 3: Network Error Retry Screen (Prevents data loss on connection drop) -->
+  <div id="retry-view" class="card" style="display: none; padding: 3rem 2rem; max-width: 580px; margin: 3rem auto; text-align: center; box-shadow: var(--shadow-lg);">
+    <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--danger-bg); color: var(--danger); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1.25rem;">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <h2 style="font-size: 1.6rem; margin-bottom: 0.5rem;">Submission Failed: Network Connection Error</h2>
+    <p style="color: var(--text-muted); line-height: 1.5; margin-bottom: 2rem;">
+      Your assessment responses are safely preserved on this device. Please verify your internet connection and click Retry Submission below.
+    </p>
+    <button id="retry-submission-btn" class="btn btn-primary btn-lg" style="min-width: 220px;">
+      Retry Submission
+    </button>
+  </div>
+
+  <!-- View 4: Completion Screen -->
+  <div id="completion-view" class="card" style="display: none; padding: 3.5rem 2rem; max-width: 580px; margin: 3rem auto; text-align: center; box-shadow: var(--shadow-lg);">
+    <div style="width: 64px; height: 64px; border-radius: 50%; background: #ecfdf5; color: var(--success); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </div>
+
+    <h2 id="completion-heading" style="font-size: 1.85rem; margin-bottom: 0.75rem;">Assessment Complete</h2>
+    <p id="completion-message" style="font-size: 1rem; color: var(--text-muted); margin-bottom: 2rem; max-width: 44ch; margin-left: auto; margin-right: auto;">
+      Thank you for completing this card matching assessment. Your response time latency and selections have been securely saved for clinical review.
+    </p>
+
+    <div style="display: flex; justify-content: center; gap: 2rem; background: var(--bg-subtle); padding: 1.25rem; border-radius: var(--radius-md); margin-bottom: 2rem;">
+      <div>
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Clinical Accuracy</div>
+        <div id="final-accuracy-val" style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">--</div>
+      </div>
+      <div>
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Pairs Completed</div>
+        <div id="final-attempts-val" style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">--</div>
+      </div>
+    </div>
+
+    <a href="/" class="btn btn-primary">Return to Homepage</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/translations.js' %}"></script>
+<script src="{% static 'js/assessment_engine.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const roundsConfig = {{ rounds_json|safe }};
+    const engine = new VisuospatialEngine({
+      sessionId: '{{ session_id }}',
+      patientCode: '{{ patient_code }}',
+      token: '{{ token }}',
+      language: '{{ language }}',
+      audioVoice: '{{ audio_voice }}',
+      difficulty: '{{ difficulty }}',
+      rounds: roundsConfig,
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Create Patient Account{% endblock %}
+{% block content %}
+<section class="card" style="max-width:520px;margin:2rem auto;padding:2rem;">
+  <span class="eyebrow">PATIENT PORTAL</span><h1>Create an account</h1>
+  <p>Optional: you can also take an assessment anonymously using your doctor's secure link.</p>
+  {% if error %}<p role="alert" style="color:#b91c1c">{{ error }}</p>{% endif %}
+  <form method="post">{% csrf_token %}
+    <div class="form-group"><label class="form-label" for="email">Email</label><input required class="form-control" id="email" name="email" type="email" autocomplete="email"></div>
+    <div class="form-group"><label class="form-label" for="password">Password</label><input required class="form-control" id="password" name="password" type="password" autocomplete="new-password" minlength="8"></div>
+    <div class="form-group"><label class="form-label" for="confirm_password">Confirm password</label><input required class="form-control" id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8"></div>
+    <button class="btn btn-primary" type="submit">Create patient account</button>
+  </form><p style="margin-top:1rem"><a href="{% url 'patient_login' %}">Already registered? Sign in</a></p>
+</section>
+{% endblock %}

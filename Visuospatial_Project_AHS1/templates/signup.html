@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Clinician Account - Visuospatial Assessment{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px; margin: 2.5rem auto; padding: 1rem 0;">
+  <div class="card" style="padding: 2.5rem; box-shadow: var(--shadow-lg);">
+    <div style="text-align: center; margin-bottom: 2rem;">
+      <div style="width: 52px; height: 52px; background: var(--primary-subtle); color: var(--primary); border-radius: var(--radius-md); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="8.5" cy="7" r="4"></circle>
+          <line x1="20" y1="8" x2="20" y2="14"></line>
+          <line x1="23" y1="11" x2="17" y2="11"></line>
+        </svg>
+      </div>
+      <h2>Create Clinician Account</h2>
+      <p style="margin-top: 0.35rem; font-size: 0.9rem;">Register to generate patient links and view assessments.</p>
+    </div>
+
+    {% if error %}
+      <div style="background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 1.5rem; font-size: 0.875rem;">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <form method="POST" action="/signup/">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="name" class="form-label">Full Name</label>
+        <input type="text" id="name" name="name" class="form-control" value="{{ name|default:'' }}" placeholder="Dr. Sarah Jenkins" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label for="organization" class="form-label">Healthcare Organization / Clinic</label>
+        <input type="text" id="organization" name="organization" class="form-control" value="{{ organization|default:'' }}" placeholder="Neurology Department, Memorial Hospital">
+      </div>
+
+      <div class="form-group">
+        <label for="email" class="form-label">Email Address</label>
+        <input type="email" id="email" name="email" class="form-control" value="{{ email|default:'' }}" placeholder="doctor@clinic.org" required autocomplete="username">
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" id="password" name="password" class="form-control" placeholder="Minimum 8 characters" required minlength="8" autocomplete="new-password">
+      </div>
+
+      <div class="form-group">
+        <label for="confirm_password" class="form-label">Confirm Password</label>
+        <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Re-enter password" required minlength="8" autocomplete="new-password">
+      </div>
+
+      <div style="background: var(--bg-subtle); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.5rem; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+        <strong style="color: var(--text-main);">Security standards:</strong>
+        Must contain at least 8 characters, cannot be entirely numeric, and cannot match commonly used passwords.
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 1rem;">
+        Register & Enter Workspace
+      </button>
+    </form>
+
+    <div style="margin-top: 1.5rem; text-align: center; font-size: 0.875rem; color: var(--text-muted);">
+      Already have an account? <a href="/login/" style="color: var(--primary); font-weight: 600; text-decoration: none;">Sign in</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Visuospatial Assessment{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/apple-design.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="brand">
+        <div class="brand-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">Visuospatial</div>
+          <span>Assessment</span>
+        </div>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a></li>
+          <li><a href="/#about" class="nav-link">About</a></li>
+          <li><a href="/#info" class="nav-link">Info</a></li>
+          {% if user.is_authenticated %}
+            {% if user.patient_profile %}
+              <li><a href="/patient-dashboard/" class="nav-link">My assessments</a></li>
+            {% else %}
+              <li><a href="/dashboard/" class="nav-link {% if 'dashboard' in request.path %}active{% endif %}">Dashboard</a></li>
+              <li><a href="/profile/" class="nav-link {% if 'profile' in request.path %}active{% endif %}">Profile</a></li>
+            {% endif %}
+          {% else %}
+            <li><a href="/patient-login/" class="nav-link">Patient portal</a></li>
+          {% endif %}
+        </ul>
+      </nav>
+
+      <div>
+        {% if user.is_authenticated %}
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            {% if user.patient_profile %}
+              <a href="/patient-dashboard/" class="btn btn-secondary btn-sm">My assessments</a>
+              <form action="/patient-logout/" method="post" style="display:inline">{% csrf_token %}<button class="btn btn-secondary btn-sm" type="submit">Sign out</button></form>
+            {% else %}
+              <a href="/profile/" class="btn btn-secondary btn-sm" title="View clinician profile">{{ user.profile.display_name|default:user.username }}</a>
+              <a href="/logout/" class="btn btn-secondary btn-sm">Sign out</a>
+            {% endif %}
+          </div>
+        {% else %}
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <a href="/login/" class="btn btn-secondary btn-sm">Clinician login</a>
+            <a href="/signup/" class="btn btn-primary btn-sm">Create account</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Body -->
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div>
+        <strong>Visuospatial Cognitive Assessment System</strong> - Senior Project Final Backend Design
+      </div>
+      <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <span>Multi-language (EN / ES / FR / DE)</span>
+        <span>·</span>
+        <span>Voice Guidance & Recognition</span>
+        <span>·</span>
+        <span>CSV Export</span>
+      </div>
+    </div>
+  </footer>
+
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

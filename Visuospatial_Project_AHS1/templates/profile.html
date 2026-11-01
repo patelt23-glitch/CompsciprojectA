@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}Clinician Profile - Visuospatial Assessment{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 2rem auto;">
+  <!-- Breadcrumb -->
+  <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+    <a href="/dashboard/" style="color: var(--text-muted); text-decoration: none;">Dashboard</a>
+    <span style="margin: 0 0.35rem;">&gt;</span>
+    <span style="color: var(--text-main); font-weight: 500;">Profile Settings</span>
+  </div>
+
+  <div class="card" style="padding: 2.5rem; box-shadow: var(--shadow-lg);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+      <div>
+        <span class="eyebrow">ACCOUNT SETTINGS</span>
+        <h1 style="font-size: 2rem; margin-top: 0.25rem;">Clinician Profile</h1>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">Manage your clinician credentials and preferences.</p>
+      </div>
+      <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--primary-subtle); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem;">
+        {{ profile.display_name|slice:":1"|upper }}
+      </div>
+    </div>
+
+    {% if success %}
+      <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">
+        {{ success }}
+      </div>
+    {% endif %}
+
+    {% if error %}
+      <div style="background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <form method="POST" action="/profile/">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="name" class="form-label">Full Name</label>
+        <input type="text" id="name" name="name" class="form-control" value="{{ profile.display_name }}" required>
+      </div>
+
+      <div class="form-group">
+        <label for="organization" class="form-label">Healthcare Organization</label>
+        <input type="text" id="organization" name="organization" class="form-control" value="{{ profile.organization }}" placeholder="e.g. Cognitive Health Center">
+      </div>
+
+      <div class="form-group">
+        <label for="email" class="form-label">Email Address (Sign-In ID)</label>
+        <input type="email" id="email" name="email" class="form-control" value="{{ user.email }}" required>
+        <div style="font-size: 0.775rem; color: var(--text-subtle); margin-top: 0.25rem;">
+          Updating your email will also change the email address used to sign in.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="preferred_language" class="form-label">Preferred Interface Language</label>
+        <select id="preferred_language" name="preferred_language" class="form-control">
+          <option value="English" {% if profile.preferred_language == 'English' %}selected{% endif %}>English</option>
+          <option value="Spanish" {% if profile.preferred_language == 'Spanish' %}selected{% endif %}>Spanish (Español)</option>
+          <option value="French" {% if profile.preferred_language == 'French' %}selected{% endif %}>French (Français)</option>
+          <option value="German" {% if profile.preferred_language == 'German' %}selected{% endif %}>German (Deutsch)</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+        <button type="submit" class="btn btn-primary" style="flex: 1;">
+          Save Changes
+        </button>
+        <a href="/dashboard/" class="btn btn-secondary">
+          Back to Dashboard
+        </a>
+      </div>
+    </form>
+
+    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-light); font-size: 0.85rem; color: var(--text-subtle); display: flex; justify-content: space-between;">
+      <span>Account Type: Verified Clinician</span>
+      <span>Joined: {{ user.date_joined|date:"M d, Y" }}</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
