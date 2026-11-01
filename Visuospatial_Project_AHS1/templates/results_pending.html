@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Assessment In Progress - {{ session.patient_code }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 540px; margin: 4rem auto; padding: 3rem 2rem; text-align: center; box-shadow: var(--shadow-lg);">
+  <div style="width: 60px; height: 60px; border-radius: 50%; background: #eff6ff; color: #2563eb; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <polyline points="12 6 12 12 14 14"></polyline>
+    </svg>
+  </div>
+
+  <h2 style="font-size: 1.6rem; margin-bottom: 0.75rem;">Assessment Still Pending</h2>
+  <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 2rem;">
+    Patient <strong>{{ session.patient_code }}</strong> has not finished this assessment session yet. Results and CSV data will become available once all rounds are completed.
+  </p>
+
+  <div style="display: flex; justify-content: center; gap: 1rem;">
+    <a href="/patient/{{ session.token_raw }}/" target="_blank" class="btn btn-primary">Open Patient Test</a>
+    <a href="/dashboard/" class="btn btn-secondary">Back to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

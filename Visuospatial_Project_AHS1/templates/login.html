@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Clinician Sign In - Visuospatial Assessment{% endblock %}
+
+{% block content %}
+<div style="max-width: 440px; margin: 3rem auto; padding: 1rem 0;">
+  <div class="card" style="padding: 2.5rem; box-shadow: var(--shadow-lg);">
+    <div style="text-align: center; margin-bottom: 2rem;">
+      <div style="width: 52px; height: 52px; background: var(--primary-subtle); color: var(--primary); border-radius: var(--radius-md); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </div>
+      <h2>Clinician Workspace</h2>
+      <p style="margin-top: 0.35rem; font-size: 0.9rem;">Sign in to access patient records and invitations.</p>
+    </div>
+
+    {% if error %}
+      <div style="background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 1.5rem; font-size: 0.875rem;">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    {% if request.GET.reset == 'success' %}
+      <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 1.5rem; font-size: 0.875rem;">
+        Your password has been successfully reset. Please sign in with your new password.
+      </div>
+    {% endif %}
+
+    <form method="POST" action="/login/">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="username" class="form-label">Email or Username</label>
+        <input type="text" id="username" name="username" class="form-control" value="{{ username|default:'clinician' }}" required autofocus autocomplete="username">
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <label for="password" class="form-label" style="margin-bottom: 0;">Password</label>
+          <a href="/forgot-password/" style="font-size: 0.8rem; color: var(--primary); text-decoration: none;">Forgot password?</a>
+        </div>
+        <input type="password" id="password" name="password" class="form-control" value="assessment2025" required autocomplete="current-password">
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+        <input type="checkbox" id="remember" name="remember" style="width: 16px; height: 16px; accent-color: var(--primary);">
+        <label for="remember" style="font-size: 0.875rem; color: var(--text-muted); cursor: pointer; user-select: none;">
+          Remember me for 14 days
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 1rem;">
+        Sign In
+      </button>
+    </form>
+
+    <div style="margin-top: 1.5rem; text-align: center; font-size: 0.875rem; color: var(--text-muted);">
+      New clinician? <a href="/signup/" style="color: var(--primary); font-weight: 600; text-decoration: none;">Create account</a>
+    </div>
+
+    <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-light); text-align: center; font-size: 0.8rem; color: var(--text-subtle);">
+      Pre-configured Demo Account:<br>
+      <strong style="color: var(--text-main);">clinician</strong> / <strong style="color: var(--text-main);">assessment2025</strong>
+    </div>
+  </div>
+</div>
+{% endblock %}
