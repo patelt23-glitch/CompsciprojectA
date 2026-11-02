@@ -67,6 +67,98 @@
   </div>
 </div>
 
+<div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+  <div style="margin-bottom: 1rem;">
+    <span class="eyebrow">CLINICIAN ANALYTICS</span>
+    <h2 style="font-size: 1.35rem; margin-top: 0.25rem;">
+      Assessment Performance Overview
+    </h2>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">Completed Tests</div>
+      <div style="font-size: 1.6rem; font-weight: 700;">{{ completed_count }}</div>
+    </div>
+
+    <div>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">Average Accuracy</div>
+      <div style="font-size: 1.6rem; font-weight: 700;">{{ avg_accuracy }}%</div>
+    </div>
+
+    <div>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">Average Response</div>
+      <div style="font-size: 1.6rem; font-weight: 700;">{{ avg_response_sec }}s</div>
+    </div>
+  </div>
+
+  <div style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="text-align: left; border-bottom: 1px solid var(--border-light);">
+          <th style="padding: 0.75rem;">Patient</th>
+          <th style="padding: 0.75rem;">Accuracy</th>
+          <th style="padding: 0.75rem;">Avg Response</th>
+          <th style="padding: 0.75rem;">Mistakes</th>
+          <th style="padding: 0.75rem;">Review Status</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for session in completed_sessions %}
+        <tr style="border-bottom: 1px solid var(--border-light);">
+          <td style="padding: 0.75rem; font-weight: 600;">
+            {{ session.patient_code }}
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ session.result.accuracy_percent|floatformat:1 }}%
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ session.result.avg_latency_ms|floatformat:0 }} ms
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ session.result.mistakes }}
+          </td>
+
+          <td style="padding: 0.75rem;">
+           {% if session.result.accuracy_percent < 75 %}
+              <span style="background:#fff3cd; color:#8a5a00; padding:0.3rem 0.6rem; border-radius:999px; font-size:0.8rem; font-weight:600;">
+                Review accuracy
+              </span>
+            {% elif session.result.avg_latency_ms > 2000 %}
+              <span style="background:#fff3cd; color:#8a5a00; padding:0.3rem 0.6rem; border-radius:999px; font-size:0.8rem; font-weight:600;">
+                Review response time
+              </span>
+            {% elif session.result.mistakes >= 4 %}
+              <span style="background:#fff3cd; color:#8a5a00; padding:0.3rem 0.6rem; border-radius:999px; font-size:0.8rem; font-weight:600;">
+                Review errors
+              </span>
+            {% else %}
+              <span style="background:#e7f8ee; color:#227a45; padding:0.3rem 0.6rem; border-radius:999px; font-size:0.8rem; font-weight:600;">
+                Within expected range
+              </span>
+            {% endif %} 
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" style="padding: 1rem;">
+            No completed assessments available.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 1rem;">
+    Review indicators summarize assessment performance and are not a medical diagnosis.
+  </p>
+</div>
+
 <!-- Doctor Dashboard Search & Filters Bar (Feature 2) -->
 <div class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 2rem;">
   <form method="GET" action="/dashboard/" id="dashboard-filter-form" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
