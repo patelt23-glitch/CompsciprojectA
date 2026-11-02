@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}My Assessment History - Patient Portal{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <span class="eyebrow">PATIENT PORTAL</span>
+    <h1>My Assessment History</h1>
+    <p>Review your completed evaluations, analyze past performance, and track cognitive progress over time.</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem; align-items: center;">
+    <a href="/patient/logout/" class="btn btn-secondary">Sign out</a>
+  </div>
+</div>
+
+<!-- Patient Summary Banner -->
+<div class="card" style="padding: 1.25rem 1.75rem; margin-bottom: 2rem; background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(248,250,252,0.95));">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">
+        REGISTERED PATIENT
+      </div>
+      <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin-top: 0.15rem;">
+        {{ user.first_name|default:user.username }}
+        <span style="font-size: 0.95rem; font-weight: 600; color: var(--primary); margin-left: 0.5rem;">({{ patient_profile.patient_code }})</span>
+      </div>
+    </div>
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+      <div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Email</div>
+        <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-main);">{{ user.email }}</div>
+      </div>
+      {% if patient_profile.dob %}
+        <div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Date of Birth</div>
+          <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-main);">{{ patient_profile.dob|date:"M d, Y" }}</div>
+        </div>
+      {% endif %}
+      <div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Member Since</div>
+        <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-main);">{{ patient_profile.created_at|date:"M Y" }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 4 Metrics Cards (Personal Longitudinal Performance) -->
+<div class="metrics-grid-4">
+  <div class="metric-card accent-blue">
+    <div class="metric-label">Completed Tests</div>
+    <div class="metric-value">{{ total_tests }}</div>
+    <div class="metric-subtext">Evaluations finished</div>
+  </div>
+
+  <div class="metric-card accent-purple">
+    <div class="metric-label">Average Accuracy</div>
+    <div class="metric-value">{{ avg_accuracy }}%</div>
+    <div class="metric-subtext">Across all completed tests</div>
+  </div>
+
+  <div class="metric-card accent-teal">
+    <div class="metric-label">Personal Best</div>
+    <div class="metric-value">{{ best_accuracy }}%</div>
+    <div class="metric-subtext">Highest accuracy recorded</div>
+  </div>
+
+  <div class="metric-card accent-amber">
+    <div class="metric-label">Average Latency</div>
+    <div class="metric-value">{{ avg_response_sec }}s</div>
+    <div class="metric-subtext">Selection response speed</div>
+  </div>
+</div>
+
+<!-- Past Assessments List -->
+<div class="card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+    <div>
+      <h2 style="font-size: 1.35rem; margin: 0;">Completed Assessments</h2>
+      <p style="font-size: 0.85rem; margin: 0.2rem 0 0 0; color: var(--text-muted);">Select any assessment below to inspect individual round breakdowns and mistake patterns.</p>
+    </div>
+    <span class="badge badge-completed">{{ total_tests }} recorded</span>
+  </div>
+
+  {% if sessions %}
+    <div class="table-responsive">
+      <table class="clean-table">
+        <thead>
+          <tr>
+            <th>Date Completed</th>
+            <th>Difficulty</th>
+            <th>Language &amp; Voice</th>
+            <th>Accuracy Score</th>
+            <th>Attempts &amp; Response</th>
+            <th>Clinician</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sessions %}
+            <tr>
+              <td>
+                <div style="font-weight: 700; color: var(--text-main);">
+                  {{ s.completed_at|date:"M d, Y" }}
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-subtle);">
+                  {{ s.completed_at|date:"h:i A" }}
+                </div>
+              </td>
+              <td>
+                <span style="font-weight: 600; color: var(--text-main);">{{ s.difficulty }}</span>
+              </td>
+              <td>
+                <div style="font-size: 0.85rem;">{{ s.language }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Voice: {{ s.audio_voice }}</div>
+              </td>
+              <td>
+                <span class="badge" style="background: {% if s.result.accuracy_percent >= 80 %}#d1fae5; color: #065f46;{% elif s.result.accuracy_percent >= 65 %}#dbeafe; color: #1e40af;{% else %}#fef3c7; color: #92400e;{% endif %} font-weight: 800; font-size: 0.85rem; padding: 0.35rem 0.75rem;">
+                  {{ s.result.accuracy_percent|floatformat:0 }}%
+                </span>
+              </td>
+              <td>
+                <div style="font-size: 0.85rem; font-weight: 600;">
+                  {{ s.result.completed_pairs }} pairs / {{ s.result.total_attempts }} tries
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                  Avg speed: {{ s.result.avg_latency_ms|div:1000|floatformat:1 }}s · {{ s.result.mistakes }} mistakes
+                </div>
+              </td>
+              <td>
+                <div style="font-size: 0.85rem; font-weight: 600;">{{ s.clinician.display_name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ s.clinician.organization|default:"Independent" }}</div>
+              </td>
+              <td>
+                <a href="/patient/history/{{ s.id }}/" class="btn btn-secondary btn-sm" style="color: var(--primary);">
+                  View Details
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1.5rem;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); margin-bottom: 1rem;">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+        <line x1="8" y1="21" x2="16" y2="21"></line>
+        <line x1="12" y1="17" x2="12" y2="21"></line>
+      </svg>
+      <h3 style="font-size: 1.15rem; color: var(--text-main); margin-bottom: 0.5rem;">No Completed Assessments Yet</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 450px; margin: 0 auto;">
+        When your clinician sends you an assessment link and you complete the test, your authoritative performance records will appear here automatically.
+      </p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
