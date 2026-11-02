@@ -1,11 +1,17 @@
 from django.contrib import admin
-from .models import ClinicianProfile, AssessmentSession, AssessmentRound, ResponseEvent, AssessmentResult
+from .models import ClinicianProfile, PatientProfile, AssessmentSession, AssessmentRound, ResponseEvent, AssessmentResult
 
 
 @admin.register(ClinicianProfile)
 class ClinicianProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'display_name', 'organization', 'created_at')
     search_fields = ('display_name', 'organization', 'user__username')
+
+
+@admin.register(PatientProfile)
+class PatientProfileAdmin(admin.ModelAdmin):
+    list_display = ('patient_code', 'user', 'dob', 'created_at')
+    search_fields = ('patient_code', 'user__username', 'user__email')
 
 
 class AssessmentRoundInline(admin.TabularInline):

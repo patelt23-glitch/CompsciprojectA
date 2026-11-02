@@ -18,6 +18,16 @@ class ClinicianProfile(models.Model):
         return f"{self.display_name} ({self.organization or 'Independent'})"
 
 
+class PatientProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='patient_profile')
+    patient_code = models.CharField(max_length=64, unique=True, db_index=True)
+    dob = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Patient {self.patient_code} ({self.user.username})"
+
+
 class PasswordResetToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
@@ -74,10 +84,12 @@ class AssessmentSession(models.Model):
         ('IN_PROGRESS', 'In Progress'),
         ('COMPLETED', 'Completed'),
         ('EXPIRED', 'Expired'),
+        ('CANCELED', 'Canceled'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     clinician = models.ForeignKey(ClinicianProfile, on_delete=models.CASCADE, related_name='sessions')
+    patient = models.ForeignKey(PatientProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='sessions')
     participant_id = models.CharField(max_length=64, blank=True, db_index=True)
     patient_code = models.CharField(max_length=64, db_index=True)
     dob = models.DateField(null=True, blank=True)
@@ -98,6 +110,31 @@ class AssessmentSession(models.Model):
 
     def is_expired(self):
         return timezone.now() > self.expires_at
+
+    def check_and_update_expiry(self):
+        if self.status in ('PENDING', 'IN_PROGRESS') and self.is_expired():
+            self.status = 'EXPIRED'
+            self.save(update_fields=['status'])
+        return self.status
+
+    def cancel(self):
+        if self.status == 'COMPLETED':
+            return False, 'Cannot cancel a completed assessment.'
+        self.status = 'CANCELED'
+        self.save(update_fields=['status'])
+        return True, 'Assessment link canceled successfully.'
+
+    def regenerate_link(self, days=7):
+        if self.status == 'COMPLETED':
+            return False, 'Cannot regenerate a link for a completed assessment.'
+        raw_token = secrets.token_urlsafe(32)
+        self.token_raw = raw_token
+        self.token_hash = self.hash_token(raw_token)
+        self.expires_at = timezone.now() + timedelta(days=days)
+        self.status = 'PENDING'
+        self.started_at = None
+        self.save(update_fields=['token_raw', 'token_hash', 'expires_at', 'status', 'started_at'])
+        return True, raw_token
 
     @staticmethod
     def hash_token(raw_token: str) -> str:

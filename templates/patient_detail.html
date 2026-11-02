@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Assessment Details - {{ session.patient_code }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumbs -->
+<div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+  <a href="/patient/history/" style="color: var(--text-muted); text-decoration: none;">&larr; Back to My Assessment History</a>
+  <span style="margin: 0 0.35rem;">/</span>
+  <span style="color: var(--text-main); font-weight: 600;">Test on {{ session.completed_at|date:"M d, Y" }}</span>
+</div>
+
+<!-- Header -->
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.35rem;">Evaluation Performance</h1>
+    <p>Detailed performance report and metrics for your visuospatial assessment.</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <button onclick="window.print()" class="btn btn-secondary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      Print Summary
+    </button>
+  </div>
+</div>
+
+<!-- Patient Info Banner -->
+<div class="results-patient-banner">
+  <div class="banner-item">
+    <div class="banner-label">PATIENT CODE</div>
+    <div class="banner-val">{{ session.patient_code }}</div>
+  </div>
+
+  <div class="banner-item">
+    <div class="banner-label">Difficulty Level</div>
+    <div class="banner-val">{{ session.difficulty }}</div>
+  </div>
+
+  <div class="banner-item">
+    <div class="banner-label">Language &amp; Voice</div>
+    <div class="banner-val">{{ session.language }} ({{ session.audio_voice }})</div>
+  </div>
+
+  <div class="banner-item">
+    <div class="banner-label">Completed Date</div>
+    <div class="banner-val">{{ session.completed_at|date:"M d, Y h:i A" }}</div>
+  </div>
+
+  <div class="banner-item">
+    <div class="banner-label">Clinician</div>
+    <div class="banner-val">{{ session.clinician.display_name }}</div>
+  </div>
+</div>
+
+<!-- 4 Key Metric Cards -->
+<div class="metrics-grid-4">
+  <div class="metric-card accent-blue">
+    <div class="metric-label">Overall Accuracy</div>
+    <div class="metric-value">{{ result.accuracy_percent|floatformat:0 }}%</div>
+    <div class="metric-subtext">{{ result.completed_pairs }} / {{ result.total_attempts }} correct</div>
+  </div>
+
+  <div class="metric-card accent-teal">
+    <div class="metric-label">Avg. Response Time</div>
+    <div class="metric-value">{{ result.avg_latency_ms|div:1000|floatformat:1 }}s</div>
+    <div class="metric-subtext">Per selection latency</div>
+  </div>
+
+  <div class="metric-card accent-purple">
+    <div class="metric-label">Quickest Response</div>
+    <div class="metric-value">{{ result.fastest_latency_ms|div:1000|floatformat:1 }}s</div>
+    <div class="metric-subtext">Fastest correct pair match</div>
+  </div>
+
+  <div class="metric-card accent-amber">
+    <div class="metric-label">Total Duration</div>
+    <div class="metric-value">{{ completion_time_str }}</div>
+    <div class="metric-subtext">Entire test session</div>
+  </div>
+</div>
+
+<!-- Round by Round Performance Table -->
+<div class="card" style="margin-bottom: 2rem;">
+  <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Performance by Assessment Round</h3>
+  <div class="table-responsive">
+    <table class="clean-table">
+      <thead>
+        <tr>
+          <th>Round</th>
+          <th>Mode / Description</th>
+          <th>Cards &amp; Pairs</th>
+          <th>Correct</th>
+          <th>Mistakes</th>
+          <th>Accuracy</th>
+          <th>Avg. Latency</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rounds_breakdown %}
+          <tr>
+            <td>
+              <span style="font-weight: 700;">
+                {% if r.is_practice %}Practice{% else %}Round {{ r.round_number }}{% endif %}
+              </span>
+            </td>
+            <td>{{ r.title }}</td>
+            <td>{{ r.pair_count }} pairs ({{ r.card_count }} cards)</td>
+            <td style="color: #059669; font-weight: 700;">{{ r.correct }}</td>
+            <td style="color: #dc2626; font-weight: 700;">{{ r.mistakes }}</td>
+            <td>
+              <span class="badge" style="background: {% if r.accuracy >= 80 %}#d1fae5; color: #065f46;{% elif r.accuracy >= 65 %}#dbeafe; color: #1e40af;{% else %}#fef3c7; color: #92400e;{% endif %} font-weight: 700;">
+                {{ r.accuracy }}%
+              </span>
+            </td>
+            <td>{{ r.avg_latency_sec }}s</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+

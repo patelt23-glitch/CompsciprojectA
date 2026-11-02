@@ -309,6 +309,24 @@ p {
   border: 1px solid #a7f3d0;
 }
 
+.badge-expired {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge-canceled {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.badge-info {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
 .badge-dot {
   width: 6px;
   height: 6px;
