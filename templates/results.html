@@ -196,6 +196,26 @@
   </div>
 </div>
 
+  <div class="card" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+  <h3 style="font-size: 1.15rem; margin-bottom: 0.75rem;">Clinician Review Summary</h3>
+
+  <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+    Key observations from this assessment to help with result review.
+  </p>
+
+  <ul style="margin: 0; padding-left: 1.25rem; line-height: 1.8;">
+    {% for item in review_summary %}
+      <li>{{ item }}</li>
+    {% empty %}
+      <li>No additional review observations are available.</li>
+    {% endfor %}
+  </ul>
+
+  <p style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 1rem;">
+    These observations summarize assessment performance and are not a medical diagnosis.
+  </p>
+</div>
+
 <!-- Charts Grid 1: Performance by Level, Accuracy Chart, Response Trend (Slide 2 / image-2-4.png) -->
 <div class="charts-grid-3">
   <!-- 1. Performance by Level Table -->

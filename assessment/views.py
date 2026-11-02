@@ -1431,6 +1431,34 @@ def results_view(request, session_id):
 
     error_rate_pct = int(round(result.mistakes / result.total_attempts * 100)) if result.total_attempts > 0 else 0
 
+    review_summary = []
+
+    if result.accuracy_percent >= 85:
+        review_summary.append(f"Overall accuracy was strong at {result.accuracy_percent:.1f}%.")
+    elif result.accuracy_percent >= 70:
+        review_summary.append(f"Overall accuracy was moderate at {result.accuracy_percent:.1f}%.")
+    else:
+        review_summary.append(f"Overall accuracy was lower at {result.accuracy_percent:.1f}% and may be useful to review.")
+
+    if attention['label'] == "High Consistency":
+        review_summary.append("Response times stayed fairly consistent during the assessment.")
+    elif attention['label'] == "Moderate Consistency":
+        review_summary.append("Response times showed some variation during the assessment.")
+    else:
+        review_summary.append("Response times varied more across the assessment and may be useful to review.")
+
+    if round_comparison_charts:
+        lowest_round = min(round_comparison_charts, key=lambda item: item['accuracy'])
+        review_summary.append(
+            f"{lowest_round['label']} had the lowest accuracy at {lowest_round['accuracy']:.1f}%."
+        )
+
+    if shape_error_items and shape_error_items[0]['count'] > 0:
+        common_error = shape_error_items[0]
+        review_summary.append(
+            f"The most common error was {common_error['name']} with {common_error['count']} mistakes."
+        )
+
     context = {
         'session': session,
         'result': result,
@@ -1445,6 +1473,7 @@ def results_view(request, session_id):
         'shape_error_items': shape_error_items,
         'completion_time_str': completion_time_str,
         'error_rate_pct': error_rate_pct,
+        'review_summary': review_summary,
     }
     return render(request, 'results.html', context)
 
