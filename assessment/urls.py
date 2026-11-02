@@ -24,14 +24,26 @@ urlpatterns = [
     path('reset-password/<str:token>/', views.reset_password_view, name='reset_password_token'),
     path('api/reset-password/', views.reset_password_view, name='api_reset_password'),
 
-    # Clinician Dashboard & Exports
+    # Clinician Dashboard, Exports & Search API
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('dashboard/export.csv', views.dashboard_export_csv_view, name='dashboard_export_csv'),
     path('api/results/export/', views.dashboard_export_csv_view, name='api_results_export_all'),
+    path('api/dashboard/sessions/', views.api_dashboard_sessions, name='api_dashboard_sessions'),
 
     # Patient Link & Session Generation API
     path('api/sessions/', views.api_create_session, name='api_create_session'),
     path('api/invitations/', views.api_create_session, name='api_invitations'),
+    path('api/sessions/<uuid:session_id>/cancel/', views.api_cancel_session, name='api_cancel_session'),
+    path('api/sessions/<uuid:session_id>/regenerate/', views.api_regenerate_session, name='api_regenerate_session'),
+
+    # Patient Portal & Assessment History
+    path('patient/login/', views.patient_login_view, name='patient_login'),
+    path('api/patient/login/', views.patient_login_view, name='api_patient_login'),
+    path('patient/signup/', views.patient_signup_view, name='patient_signup'),
+    path('api/patient/signup/', views.patient_signup_view, name='api_patient_signup'),
+    path('patient/logout/', views.patient_logout_view, name='patient_logout'),
+    path('patient/history/', views.patient_history_view, name='patient_history'),
+    path('patient/history/<uuid:session_id>/', views.patient_assessment_detail_view, name='patient_assessment_detail'),
 
     # Patient Assessment Test Page (Token based)
     path('patient/<str:token>/', views.patient_test_view, name='patient_test'),
@@ -40,8 +52,10 @@ urlpatterns = [
     path('api/sessions/<uuid:session_id>/attempts/', views.api_submit_attempt, name='api_submit_attempt'),
     path('api/sessions/<uuid:session_id>/complete/', views.api_complete_session, name='api_complete_session'),
 
-    # Detailed Results View & Export
+    # Detailed Results View, PDF Report & Export
     path('results/<uuid:session_id>/', views.results_view, name='results'),
+    path('results/<uuid:session_id>/report.pdf', views.download_pdf_report_view, name='download_pdf_report'),
+    path('api/results/<uuid:session_id>/pdf/', views.download_pdf_report_view, name='api_download_pdf_report'),
     path('api/results/<uuid:session_id>/', views.api_result_detail, name='api_result_detail'),
     path('api/results/<uuid:session_id>/export.csv', views.export_csv_view, name='export_csv'),
     path('api/results/<uuid:session_id>/export/', views.export_csv_view, name='api_export_csv_alias'),

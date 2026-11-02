@@ -5,13 +5,22 @@
 {% block title %}Dashboard - Clinician Workspace{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
   <div>
     <span class="eyebrow">CLINICIAN WORKSPACE</span>
     <h1>Dashboard</h1>
-    <p>Create patient sessions and review assessment activity.</p>
+    <p>Manage assessment links, track patient test status, and review cognitive evaluations.</p>
   </div>
-  <div style="display: flex; gap: 0.75rem; align-items: center;">
+  <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+    <a href="/patient/login/" class="btn btn-secondary" title="Switch to Patient Portal">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      Patient Portal
+    </a>
     <a href="/profile/" class="btn btn-secondary">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -52,13 +61,77 @@
   </div>
 
   <div class="metric-card accent-amber">
-    <div class="metric-label">Pending Sessions</div>
+    <div class="metric-label">Assessment Links</div>
     <div class="metric-value" id="pending-count-metric">{{ pending_count }}</div>
-    <div class="metric-subtext">Waiting for completion</div>
+    <div class="metric-subtext">{{ pending_count }} Pending · {{ expired_count }} Expired</div>
   </div>
 </div>
 
-<!-- Main Split: New Session on Left, Activity on Right (Slide 2-1) -->
+<!-- Doctor Dashboard Search & Filters Bar (Feature 2) -->
+<div class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 2rem;">
+  <form method="GET" action="/dashboard/" id="dashboard-filter-form" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+    <!-- Patient ID / Code Search -->
+    <div style="flex: 2; min-width: 220px;">
+      <label for="search-input" class="form-label" style="font-size: 0.8rem; margin-bottom: 0.35rem;">Search Patient</label>
+      <div style="position: relative;">
+        <input type="text" id="search-input" name="q" value="{{ search_query }}" class="form-control" placeholder="Search by Patient Code or Participant ID..." style="padding-left: 2.25rem;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Status Filter -->
+    <div style="flex: 1; min-width: 140px;">
+      <label for="status-filter" class="form-label" style="font-size: 0.8rem; margin-bottom: 0.35rem;">Status</label>
+      <select id="status-filter" name="status" class="form-control">
+        <option value="ALL" {% if status_filter == 'ALL' %}selected{% endif %}>All Statuses</option>
+        <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+        <option value="IN_PROGRESS" {% if status_filter == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
+        <option value="COMPLETED" {% if status_filter == 'COMPLETED' %}selected{% endif %}>Completed</option>
+        <option value="EXPIRED" {% if status_filter == 'EXPIRED' %}selected{% endif %}>Expired</option>
+        <option value="CANCELED" {% if status_filter == 'CANCELED' %}selected{% endif %}>Canceled</option>
+      </select>
+    </div>
+
+    <!-- Difficulty Filter -->
+    <div style="flex: 1; min-width: 140px;">
+      <label for="difficulty-filter" class="form-label" style="font-size: 0.8rem; margin-bottom: 0.35rem;">Difficulty</label>
+      <select id="difficulty-filter" name="difficulty" class="form-control">
+        <option value="ALL" {% if difficulty_filter == 'ALL' %}selected{% endif %}>All Difficulties</option>
+        <option value="Standard" {% if difficulty_filter == 'Standard' %}selected{% endif %}>Standard</option>
+        <option value="Advanced" {% if difficulty_filter == 'Advanced' %}selected{% endif %}>Advanced</option>
+      </select>
+    </div>
+
+    <!-- Date Filter -->
+    <div style="flex: 1; min-width: 150px;">
+      <label for="date-filter" class="form-label" style="font-size: 0.8rem; margin-bottom: 0.35rem;">Time Period</label>
+      <select id="date-filter" name="date_range" class="form-control">
+        <option value="all" {% if date_filter == 'all' %}selected{% endif %}>All Time</option>
+        <option value="today" {% if date_filter == 'today' %}selected{% endif %}>Today</option>
+        <option value="7d" {% if date_filter == '7d' %}selected{% endif %}>Past 7 Days</option>
+        <option value="30d" {% if date_filter == '30d' %}selected{% endif %}>Past Month (30 Days)</option>
+        <option value="90d" {% if date_filter == '90d' %}selected{% endif %}>Past 90 Days</option>
+      </select>
+    </div>
+
+    <!-- Buttons -->
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.25rem;">
+        Filter
+      </button>
+      {% if search_query or status_filter != 'ALL' or difficulty_filter != 'ALL' or date_filter != 'all' %}
+        <a href="/dashboard/" class="btn btn-secondary" style="padding: 0.65rem 1rem;" title="Reset all filters">
+          Reset
+        </a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Main Split: New Session on Left, Activity & Link Management on Right -->
 <div class="dashboard-split">
   <!-- Left Panel: New Session -->
   <div class="card">
@@ -115,46 +188,93 @@
     </form>
   </div>
 
-  <!-- Right Panel: Activity (Pending Sessions & Completed Assessments) -->
+  <!-- Right Panel: Assessment Link Management & Completed Assessments -->
   <div class="card">
-    <span class="eyebrow">ACTIVITY</span>
+    <span class="eyebrow">LINK MANAGEMENT &amp; ACTIVITY</span>
     
-    <!-- Pending Sessions List -->
-    <h2 style="font-size: 1.45rem; margin-bottom: 1rem;">Pending Sessions</h2>
-    <div id="pending-sessions-list" style="margin-bottom: 2.5rem;">
-      {% if pending_sessions %}
-        {% for session in pending_sessions %}
-          <div class="item-row">
-            <div>
-              <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">
-                {{ session.patient_code }}
+    <!-- 1. Assessment Links Management Section (Feature 1) -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h2 style="font-size: 1.35rem; margin: 0;">Assessment Links ({{ active_links|length }})</h2>
+      <span style="font-size: 0.8rem; color: var(--text-muted);">Manage, cancel, or regenerate invitations</span>
+    </div>
+
+    <div id="active-links-list" style="margin-bottom: 2.5rem;">
+      {% if active_links %}
+        {% for session in active_links %}
+          <div class="item-row" id="session-row-{{ session.id }}" style="align-items: flex-start;">
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">
+                  {{ session.patient_code }}
+                </span>
                 {% if session.participant_id and session.participant_id != session.patient_code %}
                   <span style="font-weight: 400; color: var(--text-muted); font-size: 0.85rem;">({{ session.participant_id }})</span>
                 {% endif %}
+
+                {% if session.status == 'PENDING' %}
+                  <span class="badge badge-pending"><span class="badge-dot"></span>Pending</span>
+                {% elif session.status == 'IN_PROGRESS' %}
+                  <span class="badge badge-info"><span class="badge-dot"></span>In Progress</span>
+                {% elif session.status == 'EXPIRED' %}
+                  <span class="badge badge-expired"><span class="badge-dot"></span>Expired</span>
+                {% elif session.status == 'CANCELED' %}
+                  <span class="badge badge-canceled"><span class="badge-dot"></span>Canceled</span>
+                {% endif %}
               </div>
-              <div style="font-size: 0.8rem; color: var(--text-muted);">
-                {{ session.language }} · Voice: {{ session.audio_voice }} · {{ session.difficulty }} · {{ session.age_bracket }}
+
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                {{ session.difficulty }} · {{ session.language }} · Voice: {{ session.audio_voice }} · {{ session.age_bracket }}
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 0.15rem;">
+                Created: {{ session.created_at|date:"M d, Y" }} · 
+                {% if session.status == 'EXPIRED' %}
+                  <span style="color: #dc2626; font-weight: 600;">Expired on {{ session.expires_at|date:"M d, Y" }}</span>
+                {% elif session.status == 'CANCELED' %}
+                  <span style="color: #64748b; font-weight: 600;">Link canceled</span>
+                {% else %}
+                  <span>Expires: {{ session.expires_at|date:"M d, Y" }}</span>
+                {% endif %}
               </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <span class="badge badge-pending">
-                <span class="badge-dot"></span>Pending
-              </span>
-              <a href="/patient/{{ session.token_raw }}/" target="_blank" class="btn btn-secondary btn-sm">
-                Open Test
-              </a>
+
+            <!-- Actions: Copy Link, Open Test, Cancel, Regenerate -->
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end;">
+              {% if session.status != 'CANCELED' and session.status != 'EXPIRED' %}
+                <button type="button" class="btn btn-secondary btn-sm copy-link-btn" data-url="/patient/{{ session.token_raw }}/" title="Copy patient link to clipboard">
+                  Copy
+                </button>
+                <a href="/patient/{{ session.token_raw }}/" target="_blank" class="btn btn-secondary btn-sm">
+                  Open
+                </a>
+              {% endif %}
+
+              {% if session.status == 'PENDING' or session.status == 'IN_PROGRESS' %}
+                <button type="button" class="btn btn-secondary btn-sm cancel-link-btn" data-id="{{ session.id }}" data-code="{{ session.patient_code }}" style="color: #dc2626;" title="Cancel this assessment link">
+                  Cancel
+                </button>
+              {% endif %}
+
+              {% if session.status == 'EXPIRED' or session.status == 'CANCELED' or session.status == 'PENDING' %}
+                <button type="button" class="btn btn-secondary btn-sm regenerate-link-btn" data-id="{{ session.id }}" data-code="{{ session.patient_code }}" style="color: var(--primary);" title="Regenerate with fresh 7-day token">
+                  Regenerate
+                </button>
+              {% endif %}
             </div>
           </div>
         {% endfor %}
       {% else %}
         <p id="pending-empty-state" style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">
-          No pending sessions currently waiting.
+          No active assessment links matching the filter.
         </p>
       {% endif %}
     </div>
 
-    <!-- Completed Assessments List -->
-    <h2 style="font-size: 1.45rem; margin-bottom: 1rem;">Completed Assessments</h2>
+    <!-- 2. Completed Assessments List -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h2 style="font-size: 1.35rem; margin: 0;">Completed Assessments ({{ completed_sessions|length }})</h2>
+      <span style="font-size: 0.8rem; color: var(--text-muted);">Authoritative test results</span>
+    </div>
+
     <div id="completed-assessments-list">
       {% if completed_sessions %}
         {% for session in completed_sessions %}
@@ -172,19 +292,22 @@
                 {{ session.completed_at|date:"M d, Y" }} · {{ session.difficulty }} · {{ session.age_bracket }} · Accuracy: {{ session.result.accuracy_percent|floatformat:0 }}% · Avg: {{ session.result.avg_latency_ms|div:1000|floatformat:1 }}s
               </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
               <span class="badge badge-completed">
                 <span class="badge-dot"></span>Completed
               </span>
               <a href="/results/{{ session.id }}/" class="btn btn-secondary btn-sm">
                 View Analysis
               </a>
+              <a href="/results/{{ session.id }}/report.pdf" class="btn btn-secondary btn-sm" title="Download clinical PDF report" style="color: var(--primary);">
+                PDF
+              </a>
             </div>
           </div>
         {% endfor %}
       {% else %}
         <p style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">
-          No completed assessments yet.
+          No completed assessments matching the filter.
         </p>
       {% endif %}
     </div>
@@ -208,15 +331,15 @@
   </div>
 </div>
 
-<!-- Modal for Generated Patient Link -->
+<!-- Modal for Generated / Regenerated Patient Link -->
 <div id="link-modal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 1rem;">
   <div class="card" style="width: 100%; max-width: 500px; padding: 2rem; box-shadow: var(--shadow-lg);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-      <h3 style="font-size: 1.25rem;">Patient Link Created</h3>
+      <h3 style="font-size: 1.25rem;" id="modal-title">Patient Link Created</h3>
       <button id="modal-close-btn" style="background: none; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; color: var(--text-muted);">&times;</button>
     </div>
-    <p style="font-size: 0.88rem; margin-bottom: 1.25rem;">
-      Session created for patient <strong id="modal-patient-code"></strong>. Share this expiring link with the patient to start their test.
+    <p style="font-size: 0.88rem; margin-bottom: 1.25rem;" id="modal-desc">
+      Session active for patient <strong id="modal-patient-code"></strong>. Share this expiring link with the patient to start their test.
     </p>
 
     <div style="margin-bottom: 1.5rem;">

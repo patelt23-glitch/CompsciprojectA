@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.conf import settings
 from assessment.models import (
     ClinicianProfile,
+    PatientProfile,
     PasswordResetToken,
     AssessmentSession,
     AssessmentRound,
@@ -503,4 +504,260 @@ class VisuospatialComprehensiveTests(TestCase):
         middleware = FixNullOriginMiddleware(lambda r: r)
         middleware(req)
         self.assertEqual(req.META.get('HTTP_ORIGIN'), 'http://localhost:8000')
+
+    # ==========================================================================
+    # 8. Feature 1: Assessment Link Management (Cancel & Regenerate)
+    # ==========================================================================
+
+    def test_link_cancellation_and_regeneration(self):
+        """Verify that doctors can cancel links and regenerate replacement links."""
+        self.client.force_login(self.user)
+        session = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-LINK-01",
+            status="PENDING",
+            token_raw="token-alpha",
+            token_hash=AssessmentSession.hash_token("token-alpha"),
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+
+        # Cancel link
+        res_cancel = self.client.post(f'/api/sessions/{session.id}/cancel/')
+        self.assertEqual(res_cancel.status_code, 200)
+        session.refresh_from_db()
+        self.assertEqual(session.status, "CANCELED")
+
+        # Regenerate link
+        res_regen = self.client.post(f'/api/sessions/{session.id}/regenerate/')
+        self.assertEqual(res_regen.status_code, 200)
+        data = res_regen.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['new_status'], 'PENDING')
+        self.assertIn('/patient/', data['patient_url'])
+
+        session.refresh_from_db()
+        self.assertEqual(session.status, "PENDING")
+        self.assertNotEqual(session.token_raw, "token-alpha")
+        self.assertTrue(session.expires_at > timezone.now())
+
+    def test_patient_test_view_rejects_canceled_and_expired_links(self):
+        """Verify patient test page blocks access to canceled or expired assessment links."""
+        # Canceled link
+        session_canceled = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-CANCELED",
+            status="CANCELED",
+            token_raw="token-canceled",
+            token_hash=AssessmentSession.hash_token("token-canceled"),
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        res_canceled = self.client.get(f'/patient/{session_canceled.token_raw}/')
+        self.assertEqual(res_canceled.status_code, 403)
+        self.assertContains(res_canceled, "Assessment Link Canceled", status_code=403)
+
+        # Expired link
+        session_expired = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-EXPIRED",
+            status="PENDING",
+            token_raw="token-expired",
+            token_hash=AssessmentSession.hash_token("token-expired"),
+            expires_at=timezone.now() - timedelta(days=1), # Expired
+        )
+        res_expired = self.client.get(f'/patient/{session_expired.token_raw}/')
+        self.assertEqual(res_expired.status_code, 410)
+        self.assertContains(res_expired, "Assessment Link Expired", status_code=410)
+
+    # ==========================================================================
+    # 9. Feature 2: Doctor Dashboard Search and Filters
+    # ==========================================================================
+
+    def test_dashboard_search_and_filters(self):
+        """Verify doctor dashboard searching and filtering by patient code, status, difficulty, and date."""
+        self.client.force_login(self.user)
+
+        s1 = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-SEARCH-101",
+            participant_id="SUBJ-A",
+            difficulty="Standard",
+            status="COMPLETED",
+            token_raw="t1",
+            token_hash=AssessmentSession.hash_token("t1"),
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        AssessmentResult.objects.create(
+            session=s1, completed_pairs=3, total_attempts=4, mistakes=1,
+            accuracy_percent=75.0, avg_latency_ms=2200.0, completion_time_ms=18000
+        )
+
+        s2 = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-ADVANCED-202",
+            participant_id="SUBJ-B",
+            difficulty="Advanced",
+            status="PENDING",
+            token_raw="t2",
+            token_hash=AssessmentSession.hash_token("t2"),
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+
+        # 1. Search by code
+        res_search = self.client.get('/dashboard/?q=SEARCH-101')
+        self.assertEqual(res_search.status_code, 200)
+        self.assertContains(res_search, "PT-SEARCH-101")
+        self.assertNotContains(res_search, "PT-ADVANCED-202")
+
+        # 2. Filter by status=PENDING
+        res_status = self.client.get('/dashboard/?status=PENDING')
+        self.assertEqual(res_status.status_code, 200)
+        self.assertContains(res_status, "PT-ADVANCED-202")
+        self.assertNotContains(res_status, "PT-SEARCH-101")
+
+        # 3. Filter by difficulty=Advanced
+        res_diff = self.client.get('/dashboard/?difficulty=Advanced')
+        self.assertEqual(res_diff.status_code, 200)
+        self.assertContains(res_diff, "PT-ADVANCED-202")
+        self.assertNotContains(res_diff, "PT-SEARCH-101")
+
+        # 4. JSON API endpoint
+        res_api = self.client.get('/api/dashboard/sessions/?q=SUBJ-A')
+        self.assertEqual(res_api.status_code, 200)
+        data = res_api.json()
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(data['sessions'][0]['patient_code'], "PT-SEARCH-101")
+
+    # ==========================================================================
+    # 10. Feature 3: PDF Assessment Report Generator
+    # ==========================================================================
+
+    def test_pdf_report_generator_and_download_view(self):
+        """Verify that ReportLab generates a valid PDF document with clinical metrics."""
+        self.client.force_login(self.user)
+        session = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-PDF-TEST",
+            difficulty="Standard",
+            status="COMPLETED",
+            token_raw="token-pdf",
+            token_hash=AssessmentSession.hash_token("token-pdf"),
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        round1 = AssessmentRound.objects.create(
+            session=session, round_number=1, is_practice=True, pair_count=2, card_count=4
+        )
+        round2 = AssessmentRound.objects.create(
+            session=session, round_number=2, is_practice=False, pair_count=3, card_count=6
+        )
+        ResponseEvent.objects.create(round=round2, attempt_number=1, is_correct=True, response_latency_ms=1800.0)
+        result = AssessmentResult.objects.create(
+            session=session, completed_pairs=3, total_attempts=1, mistakes=0,
+            accuracy_percent=100.0, avg_latency_ms=1800.0, fastest_latency_ms=1800.0,
+            slowest_latency_ms=1800.0, completion_time_ms=15000,
+            level_summary_json={'shape_errors': {'Triangle (direction)': 0}}
+        )
+
+        res_pdf = self.client.get(f'/results/{session.id}/report.pdf')
+        self.assertEqual(res_pdf.status_code, 200)
+        self.assertEqual(res_pdf['Content-Type'], 'application/pdf')
+        self.assertIn('attachment; filename="assessment_report_PT-PDF-TEST.pdf"', res_pdf['Content-Disposition'])
+        # Verify PDF magic bytes
+        self.assertTrue(res_pdf.content.startswith(b'%PDF-'))
+
+        # Cross-clinician isolation check
+        self.client.force_login(self.other_user)
+        res_forbidden = self.client.get(f'/results/{session.id}/report.pdf')
+        self.assertEqual(res_forbidden.status_code, 403)
+
+    # ==========================================================================
+    # 11. Feature 4: Patient Portal, Assessment History & Access Isolation
+    # ==========================================================================
+
+    def test_patient_portal_signup_login_history_and_isolation(self):
+        """Verify patient signup, login, auto-linking of past assessments, and history isolation."""
+        # Pre-create completed assessment with patient_code PT-ALICE
+        session_alice = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-ALICE",
+            difficulty="Standard",
+            status="COMPLETED",
+            token_raw="token-alice",
+            token_hash=AssessmentSession.hash_token("token-alice"),
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        AssessmentResult.objects.create(
+            session=session_alice, completed_pairs=3, total_attempts=3, mistakes=0,
+            accuracy_percent=100.0, avg_latency_ms=1900.0, completion_time_ms=14000
+        )
+
+        # 1. Patient Alice Signs Up
+        signup_res = self.client.post('/patient/signup/', {
+            'name': 'Alice Wonderland',
+            'email': 'alice@example.org',
+            'patient_code': 'PT-ALICE',
+            'password': 'PatientStrong2026!',
+            'confirm_password': 'PatientStrong2026!',
+        })
+        self.assertEqual(signup_res.status_code, 302)
+        alice_profile = PatientProfile.objects.get(patient_code='PT-ALICE')
+        session_alice.refresh_from_db()
+        self.assertEqual(session_alice.patient, alice_profile)
+
+        # 2. View History Page
+        history_res = self.client.get('/patient/history/')
+        self.assertEqual(history_res.status_code, 200)
+        self.assertContains(history_res, "PT-ALICE")
+        self.assertContains(history_res, "100%")
+
+        # 3. View Detail Page
+        detail_res = self.client.get(f'/patient/history/{session_alice.id}/')
+        self.assertEqual(detail_res.status_code, 200)
+        self.assertContains(detail_res, "Evaluation Performance")
+
+        # 4. Create Patient Bob
+        bob_user = User.objects.create_user(username="bob_patient", email="bob@patient.org", password="PatientStrong2026!")
+        PatientProfile.objects.create(user=bob_user, patient_code="PT-BOB")
+
+        # Bob attempts to view Alice's assessment -> 403 Forbidden
+        self.client.force_login(bob_user)
+        forbidden_res = self.client.get(f'/patient/history/{session_alice.id}/')
+        self.assertEqual(forbidden_res.status_code, 403)
+
+    # ==========================================================================
+    # 12. Feature 5: Improved Results Dashboard (Dynamic Database Records)
+    # ==========================================================================
+
+    def test_improved_results_dashboard_dynamic_data(self):
+        """Verify results view calculates dynamic metrics from actual database attempts."""
+        self.client.force_login(self.user)
+        session = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-DYNAMIC-01",
+            difficulty="Standard",
+            status="COMPLETED",
+            token_raw="token-dyn",
+            token_hash=AssessmentSession.hash_token("token-dyn"),
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        r1 = AssessmentRound.objects.create(
+            session=session, round_number=1, is_practice=False, pair_count=2, card_count=4
+        )
+        ResponseEvent.objects.create(round=r1, attempt_number=1, is_correct=True, response_latency_ms=1200.0)
+        ResponseEvent.objects.create(round=r1, attempt_number=2, is_correct=False, response_latency_ms=2400.0, target_shape='triangle')
+
+        AssessmentResult.objects.create(
+            session=session, completed_pairs=2, total_attempts=2, mistakes=1,
+            accuracy_percent=50.0, avg_latency_ms=1800.0, fastest_latency_ms=1200.0,
+            slowest_latency_ms=2400.0, completion_time_ms=16000,
+            level_summary_json={'shape_errors': {'Triangle (direction)': 1}}
+        )
+
+        res = self.client.get(f'/results/{session.id}/')
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, "50%")
+        self.assertContains(res, "Download PDF Report")
+        self.assertIn('rounds_breakdown', res.context)
+        self.assertEqual(len(res.context['rounds_breakdown']), 1)
+        self.assertEqual(res.context['rounds_breakdown'][0]['accuracy'], 50.0)
+        self.assertEqual(res.context['attention']['label'], "High Consistency")
 

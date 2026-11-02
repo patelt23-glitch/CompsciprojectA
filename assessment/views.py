@@ -22,6 +22,7 @@ from django.conf import settings
 
 from .models import (
     ClinicianProfile,
+    PatientProfile,
     PasswordResetToken,
     AssessmentSession,
     AssessmentRound,
@@ -526,53 +527,212 @@ def reset_password_view(request, token=None):
 
 
 # ==============================================================================
-# Clinician Dashboard & Link Generation
+# ==============================================================================
+# Clinician Dashboard, Link Management & Search/Filters
 # ==============================================================================
 
 @login_required
 @ensure_csrf_cookie
 def dashboard_view(request):
     """
-    Clinician Dashboard:
-    - Scoped strictly to the authenticated clinician's profile
-    - Shows aggregate statistics, participant invitations, and completed assessments
+    Clinician Dashboard with Search, Filters, and Assessment Link Management:
+    - Scoped strictly to authenticated clinician
+    - Search by patient code / participant ID
+    - Filter by completion status (PENDING, COMPLETED, EXPIRED, CANCELED)
+    - Filter by difficulty level (Standard, Advanced)
+    - Filter by date range (today, 7d, 30d, 90d, all)
+    - Auto-expires overdue links
+    - Actions to cancel or regenerate patient links
     """
     clinician, _ = ClinicianProfile.objects.get_or_create(
         user=request.user,
         defaults={'display_name': request.user.get_full_name() or request.user.username}
     )
 
-    sessions = AssessmentSession.objects.filter(clinician=clinician).select_related('result')
-    completed_sessions = [s for s in sessions if s.status == 'COMPLETED' and hasattr(s, 'result')]
-    pending_sessions = [s for s in sessions if s.status in ('PENDING', 'IN_PROGRESS')]
+    # Automatically expire any overdue pending sessions
+    AssessmentSession.objects.filter(
+        clinician=clinician,
+        status__in=['PENDING', 'IN_PROGRESS'],
+        expires_at__lt=timezone.now()
+    ).update(status='EXPIRED')
 
-    total_completed = len(completed_sessions)
-    total_pending = len(pending_sessions)
+    # Read filter query parameters
+    search_query = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', 'ALL').strip().upper()
+    difficulty_filter = request.GET.get('difficulty', 'ALL').strip()
+    date_filter = request.GET.get('date_range', 'all').strip().lower()
+
+    # Base queryset for all clinician sessions
+    base_qs = AssessmentSession.objects.filter(clinician=clinician).select_related('result', 'patient')
+
+    # Overall metrics across all clinician records
+    all_completed = [s for s in base_qs if s.status == 'COMPLETED' and hasattr(s, 'result')]
+    total_completed = len(all_completed)
+    total_pending = sum(1 for s in base_qs if s.status == 'PENDING')
+    total_expired = sum(1 for s in base_qs if s.status == 'EXPIRED')
+    total_canceled = sum(1 for s in base_qs if s.status == 'CANCELED')
 
     if total_completed > 0:
-        avg_acc = sum(s.result.accuracy_percent for s in completed_sessions) / total_completed
-        avg_resp = sum(s.result.avg_latency_ms for s in completed_sessions) / total_completed / 1000.0
+        avg_acc = sum(s.result.accuracy_percent for s in all_completed) / total_completed
+        avg_resp = sum(s.result.avg_latency_ms for s in all_completed) / total_completed / 1000.0
     else:
         avg_acc = 0.0
         avg_resp = 0.0
 
-    # Age bracket breakdown
+    # Demographic breakdown across completed tests
     bracket_counts = {}
-    for s in completed_sessions:
+    for s in all_completed:
         b = s.age_bracket or "Unknown"
         bracket_counts[b] = bracket_counts.get(b, 0) + 1
+
+    # Apply search and filtering
+    filtered_qs = base_qs.order_by('-created_at')
+
+    if search_query:
+        filtered_qs = filtered_qs.filter(
+            Q(patient_code__icontains=search_query) |
+            Q(participant_id__icontains=search_query)
+        )
+
+    if status_filter and status_filter != 'ALL':
+        filtered_qs = filtered_qs.filter(status=status_filter)
+
+    if difficulty_filter and difficulty_filter.upper() != 'ALL':
+        filtered_qs = filtered_qs.filter(difficulty__iexact=difficulty_filter)
+
+    if date_filter == 'today':
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        filtered_qs = filtered_qs.filter(created_at__gte=today_start)
+    elif date_filter == '7d':
+        filtered_qs = filtered_qs.filter(created_at__gte=timezone.now() - timedelta(days=7))
+    elif date_filter == '30d':
+        filtered_qs = filtered_qs.filter(created_at__gte=timezone.now() - timedelta(days=30))
+    elif date_filter == '90d':
+        filtered_qs = filtered_qs.filter(created_at__gte=timezone.now() - timedelta(days=90))
+
+    filtered_sessions = list(filtered_qs)
+
+    # Active links (pending, in progress, expired, canceled) vs completed
+    active_links = [s for s in filtered_sessions if s.status != 'COMPLETED']
+    completed_sessions = [s for s in filtered_sessions if s.status == 'COMPLETED']
 
     context = {
         'clinician': clinician,
         'completed_count': total_completed,
         'pending_count': total_pending,
+        'expired_count': total_expired,
+        'canceled_count': total_canceled,
         'avg_accuracy': round(avg_acc, 1),
         'avg_response_sec': round(avg_resp, 1),
-        'pending_sessions': pending_sessions[:20],
-        'completed_sessions': completed_sessions[:25],
+        'active_links': active_links,
+        'completed_sessions': completed_sessions,
         'bracket_counts': bracket_counts,
+        # Filter persistence
+        'search_query': search_query,
+        'status_filter': status_filter,
+        'difficulty_filter': difficulty_filter,
+        'date_filter': date_filter,
+        'total_filtered_count': len(filtered_sessions),
     }
     return render(request, 'dashboard.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_cancel_session(request, session_id):
+    """
+    Cancel an assessment link so it cannot be started or accessed.
+    Only permitted for non-completed sessions.
+    """
+    session = get_object_or_404(AssessmentSession, id=session_id, clinician__user=request.user)
+    success, msg = session.cancel()
+    if not success:
+        return JsonResponse({'error': msg}, status=400)
+    return JsonResponse({
+        'status': 'ok',
+        'session_id': str(session.id),
+        'patient_code': session.patient_code,
+        'new_status': 'CANCELED',
+        'message': f"Assessment link for {session.patient_code} has been canceled."
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_regenerate_session(request, session_id):
+    """
+    Regenerate an expired, canceled, or pending assessment link with a fresh token
+    and extended expiration date, keeping round layouts and parameters intact.
+    """
+    session = get_object_or_404(AssessmentSession, id=session_id, clinician__user=request.user)
+    invitation_days = getattr(settings, 'INVITATION_DAYS', 7)
+    success, raw_token_or_err = session.regenerate_link(days=invitation_days)
+    if not success:
+        return JsonResponse({'error': raw_token_or_err}, status=400)
+
+    patient_url = request.build_absolute_uri(f"/patient/{session.token_raw}/")
+    return JsonResponse({
+        'status': 'ok',
+        'session_id': str(session.id),
+        'patient_code': session.patient_code,
+        'token': session.token_raw,
+        'patient_url': patient_url,
+        'new_status': 'PENDING',
+        'expires_at': session.expires_at.isoformat(),
+        'message': f"Assessment link for {session.patient_code} regenerated successfully (valid for {invitation_days} days)."
+    })
+
+
+@login_required
+def api_dashboard_sessions(request):
+    """
+    JSON API for live dashboard searching and filtering without full page reloads.
+    """
+    clinician, _ = ClinicianProfile.objects.get_or_create(user=request.user)
+
+    search_query = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', 'ALL').strip().upper()
+    difficulty_filter = request.GET.get('difficulty', 'ALL').strip()
+    date_filter = request.GET.get('date_range', 'all').strip().lower()
+
+    qs = AssessmentSession.objects.filter(clinician=clinician).select_related('result').order_by('-created_at')
+
+    if search_query:
+        qs = qs.filter(Q(patient_code__icontains=search_query) | Q(participant_id__icontains=search_query))
+    if status_filter and status_filter != 'ALL':
+        qs = qs.filter(status=status_filter)
+    if difficulty_filter and difficulty_filter.upper() != 'ALL':
+        qs = qs.filter(difficulty__iexact=difficulty_filter)
+    if date_filter == 'today':
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        qs = qs.filter(created_at__gte=today_start)
+    elif date_filter == '7d':
+        qs = qs.filter(created_at__gte=timezone.now() - timedelta(days=7))
+    elif date_filter == '30d':
+        qs = qs.filter(created_at__gte=timezone.now() - timedelta(days=30))
+    elif date_filter == '90d':
+        qs = qs.filter(created_at__gte=timezone.now() - timedelta(days=90))
+
+    items = []
+    for s in qs[:100]:
+        res = getattr(s, 'result', None)
+        items.append({
+            'id': str(s.id),
+            'patient_code': s.patient_code,
+            'participant_id': s.participant_id or s.patient_code,
+            'status': s.status,
+            'difficulty': s.difficulty,
+            'language': s.language,
+            'audio_voice': s.audio_voice,
+            'created_at': s.created_at.strftime("%b %d, %Y"),
+            'expires_at': s.expires_at.strftime("%b %d, %Y"),
+            'is_expired': s.is_expired(),
+            'patient_url': request.build_absolute_uri(f"/patient/{s.token_raw}/") if s.token_raw else '',
+            'accuracy_percent': res.accuracy_percent if res else None,
+            'avg_latency_ms': res.avg_latency_ms if res else None,
+        })
+
+    return JsonResponse({'status': 'ok', 'count': len(items), 'sessions': items})
 
 
 @login_required
@@ -628,9 +788,15 @@ def api_create_session(request):
     invitation_days = getattr(settings, 'INVITATION_DAYS', 7)
     expires_at = timezone.now() + timedelta(days=invitation_days)
 
+    # Link to existing patient account if matched
+    matching_patient = PatientProfile.objects.filter(
+        Q(patient_code__iexact=patient_code) | Q(patient_code__iexact=custom_participant_id)
+    ).first()
+
     with transaction.atomic():
         session = AssessmentSession.objects.create(
             clinician=clinician,
+            patient=matching_patient,
             participant_id=custom_participant_id,
             patient_code=patient_code,
             dob=dob,
@@ -741,12 +907,18 @@ def patient_test_view(request, token):
             'error_message': 'This assessment link was not found. Please contact your clinician for a new link.'
         }, status=404)
 
-    if session.is_expired():
+    if session.status == 'CANCELED':
+        return render(request, 'patient_error.html', {
+            'error_title': 'Assessment Link Canceled',
+            'error_message': 'This assessment link was canceled by your clinician. Please contact your clinician to request a replacement link.'
+        }, status=403)
+
+    if session.is_expired() or session.status == 'EXPIRED':
         session.status = 'EXPIRED'
         session.save(update_fields=['status'])
         return render(request, 'patient_error.html', {
             'error_title': 'Assessment Link Expired',
-            'error_message': 'This assessment invitation has expired (valid for 7 days). Please ask your clinician to generate a new session.'
+            'error_message': 'This assessment invitation has expired. Please contact your clinician to regenerate the link.'
         }, status=410)
 
     if session.status == 'COMPLETED':
@@ -1071,7 +1243,7 @@ def api_complete_session(request, session_id):
 
 
 # ==============================================================================
-# Results Analysis View & CSV Export
+# Results Analysis View, PDF Report & CSV Export
 # ==============================================================================
 
 @login_required
@@ -1079,7 +1251,8 @@ def results_view(request, session_id):
     """
     Clinician Assessment Results Report:
     - Verifies clinician ownership (cross-clinician access is denied)
-    - Displays overall score, level accuracy, cognitive metrics, and error analysis
+    - Replaces all hardcoded values with authoritative database records
+    - Computes real accuracy, latency distributions, and round comparisons
     """
     session = get_object_or_404(
         AssessmentSession.objects.select_related('clinician'),
@@ -1093,31 +1266,214 @@ def results_view(request, session_id):
         return render(request, 'results_pending.html', {'session': session})
 
     result = session.result
-    level_data = result.level_summary_json.get('levels', {})
-    shape_errors = result.level_summary_json.get('shape_errors', {
-        'Triangle (direction)': 2,
-        'Plus (rotation)': 1,
-        'Circle (direction)': 0,
-        'Square (rotation)': 1,
-    })
+    all_rounds = session.rounds.prefetch_related('attempts').order_by('round_number')
+    scored_rounds = [r for r in all_rounds if not r.is_practice]
 
-    questions_trend = [
-        {'q': 1, 'lat': 1.8, 'acc': 100},
-        {'q': 2, 'lat': 2.1, 'acc': 100},
-        {'q': 3, 'lat': 2.3, 'acc': 80},
-        {'q': 4, 'lat': 2.7, 'acc': 75},
-        {'q': 5, 'lat': 2.4, 'acc': 85},
-        {'q': 6, 'lat': 2.9, 'acc': 70},
-    ]
+    # Real Round-by-Round Breakdown
+    rounds_breakdown = []
+    round_comparison_charts = []
+
+    for r in all_rounds:
+        attempts = list(r.attempts.all().order_by('attempt_number'))
+        total_att = len(attempts)
+        correct_att = sum(1 for a in attempts if a.is_correct)
+        mistakes_att = total_att - correct_att
+        latencies = [a.response_latency_ms for a in attempts]
+        avg_lat = (sum(latencies) / total_att / 1000.0) if total_att > 0 else 0.0
+        acc = (correct_att / total_att * 100.0) if total_att > 0 else 0.0
+        comp_ms = sum(latencies) + r.study_time_ms
+        comp_str = f"{int(comp_ms // 60000)}m {int((comp_ms % 60000) // 1000):02d}s"
+
+        if r.is_practice:
+            title = "Practice: Shape Matching"
+        elif r.mode == 'shape_direction':
+            title = "Shape + Direction Matching"
+        elif r.mode == 'complex_matching':
+            title = "Complex Multi-Attribute Matching"
+        else:
+            title = "Standard Shape Matching"
+
+        row = {
+            'round_number': r.round_number,
+            'is_practice': r.is_practice,
+            'title': title,
+            'pair_count': r.pair_count,
+            'card_count': r.card_count,
+            'total_attempts': total_att,
+            'correct': correct_att,
+            'mistakes': mistakes_att,
+            'accuracy': round(acc, 1),
+            'avg_latency_sec': round(avg_lat, 2),
+            'completion_time_str': comp_str,
+        }
+        rounds_breakdown.append(row)
+
+        if not r.is_practice:
+            round_comparison_charts.append({
+                'label': f"Round {r.round_number}",
+                'title': title,
+                'accuracy': round(acc, 1),
+                'avg_latency_sec': round(avg_lat, 2),
+                'correct': correct_att,
+                'total': total_att,
+            })
+
+    # Real Question / Attempt Sequence from Database
+    scored_attempts = ResponseEvent.objects.filter(
+        round__session=session,
+        round__is_practice=False
+    ).select_related('round').order_by('round__round_number', 'attempt_number')
+
+    questions_trend = []
+    all_latencies_sec = []
+    for idx, a in enumerate(scored_attempts, start=1):
+        lat_sec = round(a.response_latency_ms / 1000.0, 2)
+        all_latencies_sec.append(lat_sec)
+        questions_trend.append({
+            'question': idx,
+            'round_number': a.round.round_number,
+            'latency_sec': lat_sec,
+            'is_correct': a.is_correct,
+            'target_shape': a.target_shape,
+        })
+
+    # Attention Consistency: Variance of Response Latency
+    if all_latencies_sec:
+        mean_lat = sum(all_latencies_sec) / len(all_latencies_sec)
+        variance = sum((x - mean_lat) ** 2 for x in all_latencies_sec) / len(all_latencies_sec)
+        std_dev = math.sqrt(variance)
+        if std_dev < 1.2:
+            att_label = "High Consistency"
+            att_desc = "Low variation in response latency"
+            att_score = 90
+        elif std_dev < 2.4:
+            att_label = "Moderate Consistency"
+            att_desc = "Steady focus across test rounds"
+            att_score = 78
+        else:
+            att_label = "Variable Focus"
+            att_desc = "Fluctuating response latency"
+            att_score = 62
+        att_variation_str = f"{std_dev:.1f}"
+    else:
+        att_label = "Consistent"
+        att_desc = "Standard response pattern"
+        att_score = 85
+        att_variation_str = "1.0"
+
+    attention = {
+        'label': att_label,
+        'subtext': att_desc,
+        'score': att_score,
+        'variation_sec': att_variation_str,
+    }
+
+    # Memory Performance Trend: Accuracy across Scored Rounds
+    if len(round_comparison_charts) >= 2:
+        first_acc = round_comparison_charts[0]['accuracy']
+        last_acc = round_comparison_charts[-1]['accuracy']
+        diff = round(last_acc - first_acc, 1)
+        sign = "+" if diff > 0 else ""
+        diff_str = f"{sign}{diff}"
+        mem_desc = f"Accuracy changed from {first_acc:.0f}% to {last_acc:.0f}%"
+    else:
+        diff_str = "0"
+        mem_desc = "Single scored level completed"
+
+    memory = {
+        'change_percent': diff_str,
+        'description': mem_desc,
+    }
+
+    # Common Errors Breakdown
+    shape_errors = result.level_summary_json.get('shape_errors', {})
+    if not shape_errors or sum(shape_errors.values()) == 0:
+        shape_errors = {
+            'Triangle (direction)': 0,
+            'Plus (rotation)': 0,
+            'Circle (direction)': 0,
+            'Square (rotation)': 0,
+        }
+        for a in scored_attempts:
+            if not a.is_correct:
+                tgt = (a.target_shape or 'triangle').lower()
+                if 'plus' in tgt or 'cross' in tgt:
+                    shape_errors['Plus (rotation)'] += 1
+                elif 'circle' in tgt:
+                    shape_errors['Circle (direction)'] += 1
+                elif 'square' in tgt:
+                    shape_errors['Square (rotation)'] += 1
+                else:
+                    shape_errors['Triangle (direction)'] += 1
+
+    total_mistakes_tally = sum(shape_errors.values())
+    shape_error_items = []
+    shape_icons = {
+        'Triangle (direction)': ('▲', '#ef4444'),
+        'Plus (rotation)': ('✚', '#8b5cf6'),
+        'Circle (direction)': ('●', '#3b82f6'),
+        'Square (rotation)': ('■', '#64748b'),
+    }
+    for name, count in sorted(shape_errors.items(), key=lambda x: x[1], reverse=True):
+        pct = int(round(count / total_mistakes_tally * 100)) if total_mistakes_tally > 0 else 0
+        icon, color = shape_icons.get(name, ('•', '#64748b'))
+        shape_error_items.append({
+            'name': name,
+            'count': count,
+            'pct': pct,
+            'icon': icon,
+            'color': color,
+        })
+
+    # Completion Time Formatted String
+    total_sec = round(result.completion_time_ms / 1000.0)
+    completion_time_str = f"{int(total_sec // 60)}m {int(total_sec % 60):02d}s"
+
+    error_rate_pct = int(round(result.mistakes / result.total_attempts * 100)) if result.total_attempts > 0 else 0
 
     context = {
         'session': session,
         'result': result,
-        'levels': level_data,
-        'shape_errors': shape_errors,
+        'scored_rounds_count': len(scored_rounds),
+        'rounds_breakdown': rounds_breakdown,
+        'round_comparison_charts': round_comparison_charts,
+        'round_comparison_json': json.dumps(round_comparison_charts),
+        'questions_trend': questions_trend,
         'questions_trend_json': json.dumps(questions_trend),
+        'attention': attention,
+        'memory': memory,
+        'shape_error_items': shape_error_items,
+        'completion_time_str': completion_time_str,
+        'error_rate_pct': error_rate_pct,
     }
     return render(request, 'results.html', context)
+
+
+@login_required
+@never_cache
+def download_pdf_report_view(request, session_id):
+    """
+    Download a detailed clinical assessment report in PDF format.
+    Strictly verifies clinician ownership prior to document generation.
+    """
+    session = get_object_or_404(
+        AssessmentSession.objects.select_related('clinician', 'result'),
+        id=session_id
+    )
+
+    if session.clinician.user != request.user:
+        return HttpResponse('Access denied: You can only view assessments belonging to your account.', status=403)
+
+    if not hasattr(session, 'result'):
+        return HttpResponse('Assessment result pending.', status=404)
+
+    from .reports import generate_assessment_pdf
+    pdf_bytes = generate_assessment_pdf(session, session.result)
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    filename = f"assessment_report_{session.patient_code}.pdf"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 @login_required
@@ -1255,3 +1611,283 @@ def api_result_detail(request, session_id):
         'total_attempts': r.total_attempts,
         'level_summary': r.level_summary_json,
     })
+
+
+# ==============================================================================
+# Patient Account Authentication & Assessment History
+# ==============================================================================
+
+@ensure_csrf_cookie
+def patient_login_view(request):
+    """
+    Patient portal sign-in page:
+    Allows patients to sign in using their Patient Code, Email, or Username.
+    """
+    if request.user.is_authenticated:
+        if hasattr(request.user, 'patient_profile'):
+            return redirect('patient_history')
+
+    error = None
+    if request.method == 'POST':
+        if request.content_type == 'application/json':
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({'error': 'Invalid JSON'}, status=400)
+            is_json = True
+        else:
+            data = request.POST
+            is_json = False
+
+        identifier = data.get('identifier', '').strip()
+        password = data.get('password', '')
+
+        # Check if identifier matches a PatientProfile patient_code
+        matching_profile = PatientProfile.objects.filter(patient_code__iexact=identifier).first()
+        if matching_profile:
+            auth_username = matching_profile.user.username
+        else:
+            auth_username = identifier
+
+        user = authenticate(request, username=auth_username, password=password)
+        if user is None and '@' in identifier:
+            try:
+                matched_user = User.objects.get(email__iexact=identifier)
+                user = authenticate(request, username=matched_user.username, password=password)
+            except (User.DoesNotExist, User.MultipleObjectsReturned):
+                user = None
+
+        if user is not None:
+            login(request, user)
+            # Ensure patient profile exists
+            PatientProfile.objects.get_or_create(
+                user=user,
+                defaults={'patient_code': f"PT-{user.username[:30]}"}
+            )
+            if is_json:
+                return JsonResponse({'status': 'ok', 'redirect': '/patient/history/'})
+            return redirect('patient_history')
+        else:
+            error = 'Invalid patient code, email, or password. Please try again.'
+            if is_json:
+                return JsonResponse({'error': error}, status=401)
+
+    return render(request, 'patient_login.html', {'error': error})
+
+
+@ensure_csrf_cookie
+def patient_signup_view(request):
+    """
+    Patient account registration:
+    Allows patients to create their account and automatically connects past assessments.
+    """
+    if request.user.is_authenticated and hasattr(request.user, 'patient_profile'):
+        return redirect('patient_history')
+
+    error = None
+    if request.method == 'POST':
+        if request.content_type == 'application/json':
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({'error': 'Invalid JSON'}, status=400)
+            is_json = True
+        else:
+            data = request.POST
+            is_json = False
+
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip().lower()
+        patient_code = data.get('patient_code', '').strip().upper()
+        dob_str = data.get('dob')
+        password = data.get('password', '')
+        confirm_password = data.get('confirm_password', '')
+
+        if not name:
+            error = 'Full name is required.'
+        elif not email:
+            error = 'Email address is required.'
+        elif password != confirm_password:
+            error = 'Passwords do not match.'
+        else:
+            try:
+                validate_email(email)
+            except ValidationError:
+                error = 'Please enter a valid email address.'
+
+        if not error and User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).exists():
+            error = 'An account with this email already exists. Please sign in.'
+
+        if not error and patient_code:
+            if PatientProfile.objects.filter(patient_code__iexact=patient_code).exists():
+                error = 'That patient code is already registered to an existing account. Please sign in.'
+
+        if not error:
+            temp_user = User(username=email, email=email, first_name=name)
+            try:
+                validate_password(password, user=temp_user)
+            except ValidationError as e:
+                error = ' '.join(e.messages)
+
+        if not error:
+            dob = None
+            if dob_str:
+                try:
+                    from datetime import datetime
+                    dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
+                except ValueError:
+                    pass
+
+            if not patient_code:
+                random_digits = secrets.randbelow(9000) + 1000
+                patient_code = f"PT-{random_digits}"
+
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=email,
+                    email=email,
+                    first_name=name,
+                    password=password,
+                )
+                patient_profile = PatientProfile.objects.create(
+                    user=user,
+                    patient_code=patient_code,
+                    dob=dob,
+                )
+                # Connect any existing unlinked assessments matching patient_code
+                AssessmentSession.objects.filter(
+                    patient_code__iexact=patient_code,
+                    patient__isnull=True
+                ).update(patient=patient_profile)
+
+            login(request, user)
+            if is_json:
+                return JsonResponse({'status': 'ok', 'redirect': '/patient/history/'}, status=201)
+            return redirect('patient_history')
+
+        if is_json:
+            return JsonResponse({'error': error}, status=400)
+
+    return render(request, 'patient_signup.html', {'error': error})
+
+
+@require_http_methods(["GET", "POST"])
+def patient_logout_view(request):
+    """Sign out patient and redirect to patient login."""
+    logout(request)
+    return redirect('patient_login')
+
+
+@login_required
+def patient_history_view(request):
+    """
+    Dedicated Patient Assessment History Page:
+    - Scoped strictly to the authenticated patient's records
+    - Shows list of past tests, completion dates, difficulty levels, accuracy, and latency
+    - Longitudinal progression metrics across tests
+    """
+    patient_profile, _ = PatientProfile.objects.get_or_create(
+        user=request.user,
+        defaults={'patient_code': f"PT-{request.user.username[:30]}"}
+    )
+
+    # Link any unlinked sessions with matching patient code
+    AssessmentSession.objects.filter(
+        patient_code__iexact=patient_profile.patient_code,
+        patient__isnull=True
+    ).update(patient=patient_profile)
+
+    # Retrieve all completed assessments for this patient
+    sessions = AssessmentSession.objects.filter(
+        Q(patient=patient_profile) | Q(patient_code__iexact=patient_profile.patient_code),
+        status='COMPLETED'
+    ).select_related('result', 'clinician').order_by('-completed_at')
+
+    completed_list = [s for s in sessions if hasattr(s, 'result')]
+    total_tests = len(completed_list)
+
+    if total_tests > 0:
+        avg_acc = sum(s.result.accuracy_percent for s in completed_list) / total_tests
+        best_acc = max(s.result.accuracy_percent for s in completed_list)
+        avg_lat = sum(s.result.avg_latency_ms for s in completed_list) / total_tests / 1000.0
+    else:
+        avg_acc = 0.0
+        best_acc = 0.0
+        avg_lat = 0.0
+
+    context = {
+        'patient_profile': patient_profile,
+        'sessions': completed_list,
+        'total_tests': total_tests,
+        'avg_accuracy': round(avg_acc, 1),
+        'best_accuracy': round(best_acc, 1),
+        'avg_response_sec': round(avg_lat, 2),
+    }
+    return render(request, 'patient_history.html', context)
+
+
+@login_required
+def patient_assessment_detail_view(request, session_id):
+    """
+    Detailed performance view of a single assessment for the patient:
+    - Strict privacy check: only the owning patient can view this record
+    - Shows correct matches, mistakes, response times, and round performance
+    """
+    session = get_object_or_404(
+        AssessmentSession.objects.select_related('clinician', 'result'),
+        id=session_id
+    )
+
+    patient_profile = getattr(request.user, 'patient_profile', None)
+    if not patient_profile or (session.patient != patient_profile and session.patient_code.upper() != patient_profile.patient_code.upper()):
+        return HttpResponse('Access denied: You can only view your own assessment records.', status=403)
+
+    if not hasattr(session, 'result'):
+        return render(request, 'results_pending.html', {'session': session})
+
+    result = session.result
+    all_rounds = session.rounds.prefetch_related('attempts').order_by('round_number')
+
+    rounds_breakdown = []
+    for r in all_rounds:
+        attempts = list(r.attempts.all().order_by('attempt_number'))
+        tot = len(attempts)
+        corr = sum(1 for a in attempts if a.is_correct)
+        mist = tot - corr
+        lats = [a.response_latency_ms for a in attempts]
+        avg_lat = (sum(lats) / tot / 1000.0) if tot > 0 else 0.0
+        acc = (corr / tot * 100.0) if tot > 0 else 0.0
+
+        if r.is_practice:
+            desc = "Practice Round (Orientation)"
+        elif r.mode == 'shape_direction':
+            desc = "Shape + Direction Matching"
+        elif r.mode == 'complex_matching':
+            desc = "Complex Multi-Attribute Matching"
+        else:
+            desc = "Standard Shape Matching"
+
+        rounds_breakdown.append({
+            'round_number': r.round_number,
+            'is_practice': r.is_practice,
+            'title': desc,
+            'pair_count': r.pair_count,
+            'card_count': r.card_count,
+            'total_attempts': tot,
+            'correct': corr,
+            'mistakes': mist,
+            'accuracy': round(acc, 1),
+            'avg_latency_sec': round(avg_lat, 2),
+        })
+
+    total_sec = round(result.completion_time_ms / 1000.0)
+    completion_time_str = f"{int(total_sec // 60)}m {int(total_sec % 60):02d}s"
+
+    context = {
+        'session': session,
+        'result': result,
+        'patient_profile': patient_profile,
+        'rounds_breakdown': rounds_breakdown,
+        'completion_time_str': completion_time_str,
+    }
+    return render(request, 'patient_detail.html', context)
