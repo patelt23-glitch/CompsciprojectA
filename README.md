@@ -4,7 +4,6 @@
 [![Django](https://img.shields.io/badge/Django-6.1-green.svg)](https://www.djangoproject.com/)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
-[![Tests](https://img.shields.io/badge/Tests-22%20Passed-success.svg)](https://github.com/Singhtanuj387/assessment)
 [![Design](https://img.shields.io/badge/Design-Apple%20Fluid%20UI-indigo.svg)](https://developer.apple.com/design/)
 
 A clinical-grade visuospatial memory assessment platform built with **Django**, providing persistent patient sessions, sub-millisecond response latency tracking, voice interaction, multilingual translation, account security, link lifecycle management, PDF clinical reports, patient assessment history, and spreadsheet export. Designed according to the specifications in `Visuospatial_Final_Backend_Design.pptx` and styled using fluid Apple Design principles with zero em-dashes and tactile spring feedback.
@@ -157,7 +156,6 @@ System check identified no issues (0 silenced).
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/Singhtanuj387/assessment.git
 cd assessment
 
 # 2. Install dependencies
