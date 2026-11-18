@@ -210,6 +210,71 @@ class VisuospatialComprehensiveTests(TestCase):
     # 4. Cross-Clinician Isolation & Access Control
     # ==========================================================================
 
+    def test_professional_csv_exports_include_headings_and_data(self):
+        """Verify single and dashboard CSV exports contain structured report sections."""
+        session = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-CSV-PRO",
+            participant_id="CSV-P001",
+            birth_year=1995,
+            age_bracket="30-44 years",
+            status="COMPLETED",
+            difficulty="Advanced",
+            language="English",
+            audio_voice="Female",
+            completed_at=timezone.now(),
+            token_hash=AssessmentSession.hash_token("csv-export-token"),
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        AssessmentResult.objects.create(
+            session=session,
+            completed_pairs=6,
+            total_attempts=8,
+            mistakes=2,
+            accuracy_percent=75.0,
+            avg_latency_ms=1500,
+            fastest_latency_ms=900,
+            slowest_latency_ms=2200,
+            completion_time_ms=45000,
+            clinician_notes="Maintains consistent attention.",
+        )
+        assessment_round = AssessmentRound.objects.create(
+            session=session,
+            round_number=1,
+            pair_count=3,
+            card_count=6,
+            deck_layout=[],
+        )
+        ResponseEvent.objects.create(
+            round=assessment_round,
+            attempt_number=1,
+            selected_cards=[0, 1],
+            is_correct=True,
+            response_latency_ms=1200,
+        )
+
+        self.client.login(username='dr_sarah', password='StrongPassword2026!')
+
+        single = self.client.get(f'/api/results/{session.id}/export.csv')
+        self.assertEqual(single.status_code, 200)
+        self.assertEqual(single['Content-Type'], 'text/csv; charset=utf-8')
+        single_text = single.content.decode('utf-8-sig')
+        self.assertIn('VISUOSPATIAL ASSESSMENT REPORT', single_text)
+        self.assertIn('PATIENT AND ASSESSMENT INFORMATION', single_text)
+        self.assertIn('PERFORMANCE SUMMARY', single_text)
+        self.assertIn('ROUND-BY-ROUND PERFORMANCE', single_text)
+        self.assertIn('PT-CSV-PRO', single_text)
+        self.assertIn('1995', single_text)
+
+        dashboard = self.client.get('/dashboard/export.csv')
+        self.assertEqual(dashboard.status_code, 200)
+        dashboard_text = dashboard.content.decode('utf-8-sig')
+        self.assertIn('CLINICAL ASSESSMENT RESULTS REPORT', dashboard_text)
+        self.assertIn('Patient Code', dashboard_text)
+        self.assertIn('Accuracy (%)', dashboard_text)
+        self.assertIn('Clinician Notes', dashboard_text)
+        self.assertIn('Maintains consistent attention.', dashboard_text)
+
     def test_cross_clinician_access_forbidden(self):
         """Verify that Clinician B cannot view or export Clinician A's assessment results."""
         # Create completed session for Clinician A
@@ -251,7 +316,7 @@ class VisuospatialComprehensiveTests(TestCase):
     # ==========================================================================
 
     def test_create_session_with_custom_participant_id(self):
-        """Verify custom participant ID (e.g. P001) and 7-day expiration."""
+        """Verify custom participant ID, 7-day expiry, and birth-year age brackets."""
         self.client.login(username='dr_sarah', password='StrongPassword2026!')
 
         payload = {
@@ -276,6 +341,12 @@ class VisuospatialComprehensiveTests(TestCase):
         # Verify 7-day expiration
         expected_expiry_min = timezone.now() + timedelta(days=6, hours=23)
         self.assertGreater(session.expires_at, expected_expiry_min)
+
+    def test_birth_year_age_brackets(self):
+        """Verify birth-year strings and integers calculate the same age bracket."""
+        birth_year = timezone.now().year - 35
+        self.assertEqual(calculate_age_bracket(birth_year), calculate_age_bracket(str(birth_year)))
+        self.assertEqual(calculate_age_bracket(str(birth_year)), '30-44 years')
 
     def test_difficulty_settings_round_generation(self):
         """Verify Standard creates 3 rounds and Advanced creates 4 rounds with decks."""

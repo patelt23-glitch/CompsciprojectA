@@ -763,7 +763,6 @@ def api_create_session(request):
         return JsonResponse({'error': 'Invalid JSON body'}, status=400)
 
     custom_participant_id = data.get('participant_id', '').strip()
-    dob_str = data.get('dob')
     birth_year = parse_birth_year(data.get('birth_year'))
     language = data.get('language', 'English')
     audio_voice = data.get('audio_voice', 'Female')
@@ -780,16 +779,7 @@ def api_create_session(request):
         random_digits = secrets.randbelow(9000) + 1000
         patient_code = f"PPST-{random_digits}"
 
-    dob = None
     age_bracket = "18-30 years"
-    if dob_str:
-        try:
-            from datetime import datetime
-            dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
-            age_bracket = calculate_age_bracket(dob)
-            birth_year = dob.year
-        except ValueError:
-            pass
     if birth_year:
         age_bracket = calculate_age_bracket(birth_year)
 
@@ -810,7 +800,6 @@ def api_create_session(request):
             patient=matching_patient,
             participant_id=custom_participant_id,
             patient_code=patient_code,
-            dob=dob,
             birth_year=birth_year,
             age_bracket=age_bracket,
             language=language,
@@ -1520,7 +1509,7 @@ def download_pdf_report_view(request, session_id):
 @login_required
 @never_cache
 def export_csv_view(request, session_id):
-    """Export single assessment result as CSV with clinician access check."""
+    """Export a professional, structured assessment report as CSV."""
     session = get_object_or_404(
         AssessmentSession.objects.select_related('clinician', 'result'),
         id=session_id
@@ -1535,36 +1524,74 @@ def export_csv_view(request, session_id):
     result = session.result
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="assessment_{session.patient_code}.csv"'
+    response.write('\ufeff')
 
     writer = csv.writer(response)
-    writer.writerow([
-        'session_id', 'participant_id', 'patient_code', 'completed_at',
-        'difficulty', 'language', 'voice',
-        'correct_matches', 'mistakes', 'total_attempts',
-        'accuracy_percent', 'avg_latency_seconds', 'completion_seconds'
-    ])
-    writer.writerow([
-        str(session.id),
-        session.participant_id or session.patient_code,
-        session.patient_code,
-        session.completed_at.isoformat() if session.completed_at else '',
-        session.difficulty,
-        session.language,
-        session.audio_voice,
-        result.completed_pairs,
-        result.mistakes,
-        result.total_attempts,
-        result.accuracy_percent,
-        round(result.avg_latency_ms / 1000.0, 2),
-        round(result.completion_time_ms / 1000.0, 1),
-    ])
+    writer.writerow(['VISUOSPATIAL ASSESSMENT REPORT'])
+    writer.writerow(['Export generated', timezone.now().strftime('%B %d, %Y at %I:%M %p')])
+    writer.writerow(['Clinician', session.clinician.display_name])
+    writer.writerow(['Organization', session.clinician.organization or 'Independent'])
+    writer.writerow([])
+
+    writer.writerow(['PATIENT AND ASSESSMENT INFORMATION'])
+    writer.writerow(['Field', 'Value'])
+    writer.writerow(['Session ID', str(session.id)])
+    writer.writerow(['Patient Code', session.patient_code])
+    writer.writerow(['Participant ID', session.participant_id or session.patient_code])
+    writer.writerow(['Birth Year', session.birth_year or 'Not provided'])
+    writer.writerow(['Age Bracket', session.age_bracket])
+    writer.writerow(['Assessment Status', session.status])
+    writer.writerow(['Difficulty', session.difficulty])
+    writer.writerow(['Language', session.language])
+    writer.writerow(['Audio Guidance', session.audio_voice])
+    writer.writerow(['Date Completed', session.completed_at.strftime('%B %d, %Y at %I:%M %p') if session.completed_at else 'Not completed'])
+    writer.writerow([])
+
+    writer.writerow(['PERFORMANCE SUMMARY'])
+    writer.writerow(['Metric', 'Value', 'Unit'])
+    writer.writerow(['Overall Accuracy', f"{result.accuracy_percent:.1f}", '%'])
+    writer.writerow(['Correct Matches', result.completed_pairs, 'pairs'])
+    writer.writerow(['Total Attempts', result.total_attempts, 'attempts'])
+    writer.writerow(['Mistakes', result.mistakes, 'mistakes'])
+    writer.writerow(['Error Rate', f"{(result.mistakes / result.total_attempts * 100):.1f}" if result.total_attempts else '0.0', '%'])
+    writer.writerow(['Average Response Time', f"{result.avg_latency_ms / 1000:.2f}", 'seconds'])
+    writer.writerow(['Fastest Response Time', f"{result.fastest_latency_ms / 1000:.2f}", 'seconds'])
+    writer.writerow(['Slowest Response Time', f"{result.slowest_latency_ms / 1000:.2f}", 'seconds'])
+    writer.writerow(['Completion Time', f"{result.completion_time_ms / 1000:.1f}", 'seconds'])
+    writer.writerow([])
+
+    writer.writerow(['ROUND-BY-ROUND PERFORMANCE'])
+    writer.writerow(['Round', 'Description', 'Pairs', 'Cards', 'Correct', 'Mistakes', 'Accuracy (%)', 'Average Latency (seconds)'])
+    rounds = session.rounds.prefetch_related('attempts').order_by('round_number')
+    for assessment_round in rounds:
+        attempts = list(assessment_round.attempts.all())
+        correct = sum(1 for attempt in attempts if attempt.is_correct)
+        mistakes = len(attempts) - correct
+        accuracy = (correct / len(attempts) * 100) if attempts else 0
+        latencies = [attempt.response_latency_ms for attempt in attempts]
+        avg_latency = (sum(latencies) / len(latencies) / 1000) if latencies else 0
+        description = 'Practice Round' if assessment_round.is_practice else f"Level {assessment_round.round_number}"
+        writer.writerow([
+            assessment_round.round_number,
+            description,
+            assessment_round.pair_count,
+            assessment_round.card_count,
+            correct,
+            mistakes,
+            f"{accuracy:.1f}",
+            f"{avg_latency:.2f}",
+        ])
+
+    writer.writerow([])
+    writer.writerow(['CLINICIAN NOTES'])
+    writer.writerow([result.clinician_notes or 'No notes recorded'])
     return response
 
 
 @login_required
 @never_cache
 def dashboard_export_csv_view(request):
-    """Export all completed assessment results for the clinician."""
+    """Export all completed assessment results in a professional CSV report."""
     clinician, _ = ClinicianProfile.objects.get_or_create(user=request.user)
     completed_sessions = AssessmentSession.objects.filter(
         clinician=clinician,
@@ -1573,32 +1600,62 @@ def dashboard_export_csv_view(request):
 
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename="all_assessment_results.csv"'
+    response.write('\ufeff')
 
     writer = csv.writer(response)
+    writer.writerow(['CLINICAL ASSESSMENT RESULTS REPORT'])
+    writer.writerow(['Export generated', timezone.now().strftime('%B %d, %Y at %I:%M %p')])
+    writer.writerow(['Clinician', clinician.display_name])
+    writer.writerow(['Organization', clinician.organization or 'Independent'])
+    writer.writerow(['Scope', 'All completed assessments'])
+    writer.writerow(['Total Records', completed_sessions.count()])
+    writer.writerow([])
     writer.writerow([
-        'session_id', 'participant_id', 'patient_code', 'completed_at',
-        'difficulty', 'language', 'voice',
-        'correct_matches', 'mistakes', 'total_attempts',
-        'accuracy_percent', 'avg_latency_seconds', 'completion_seconds'
+        'Session ID',
+        'Patient Code',
+        'Participant ID',
+        'Birth Year',
+        'Age Bracket',
+        'Date Completed',
+        'Difficulty',
+        'Language',
+        'Audio Guidance',
+        'Correct Matches',
+        'Mistakes',
+        'Total Attempts',
+        'Error Rate (%)',
+        'Accuracy (%)',
+        'Average Latency (seconds)',
+        'Fastest Latency (seconds)',
+        'Slowest Latency (seconds)',
+        'Completion Time (seconds)',
+        'Clinician Notes',
     ])
 
     for s in completed_sessions:
         if hasattr(s, 'result'):
             r = s.result
+            error_rate = (r.mistakes / r.total_attempts * 100) if r.total_attempts else 0
             writer.writerow([
                 str(s.id),
-                s.participant_id or s.patient_code,
                 s.patient_code,
-                s.completed_at.isoformat() if s.completed_at else '',
+                s.participant_id or s.patient_code,
+                s.birth_year or '',
+                s.age_bracket,
+                s.completed_at.strftime('%Y-%m-%d %I:%M %p') if s.completed_at else '',
                 s.difficulty,
                 s.language,
                 s.audio_voice,
                 r.completed_pairs,
                 r.mistakes,
                 r.total_attempts,
-                r.accuracy_percent,
-                round(r.avg_latency_ms / 1000.0, 2),
-                round(r.completion_time_ms / 1000.0, 1),
+                f"{error_rate:.1f}",
+                f"{r.accuracy_percent:.1f}",
+                f"{r.avg_latency_ms / 1000:.2f}",
+                f"{r.fastest_latency_ms / 1000:.2f}",
+                f"{r.slowest_latency_ms / 1000:.2f}",
+                f"{r.completion_time_ms / 1000:.1f}",
+                r.clinician_notes or '',
             ])
 
     return response
@@ -1740,7 +1797,6 @@ def patient_signup_view(request):
         name = data.get('name', '').strip()
         email = data.get('email', '').strip().lower()
         patient_code = data.get('patient_code', '').strip().upper()
-        dob_str = data.get('dob')
         birth_year = parse_birth_year(data.get('birth_year'))
         password = data.get('password', '')
         confirm_password = data.get('confirm_password', '')
@@ -1772,15 +1828,6 @@ def patient_signup_view(request):
                 error = ' '.join(e.messages)
 
         if not error:
-            dob = None
-            if dob_str:
-                try:
-                    from datetime import datetime
-                    dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
-                    birth_year = dob.year
-                except ValueError:
-                    pass
-
             if not patient_code:
                 random_digits = secrets.randbelow(9000) + 1000
                 patient_code = f"PT-{random_digits}"
@@ -1795,7 +1842,6 @@ def patient_signup_view(request):
                 patient_profile = PatientProfile.objects.create(
                     user=user,
                     patient_code=patient_code,
-                    dob=dob,
                     birth_year=birth_year,
                 )
                 # Connect any existing unlinked assessments matching patient_code
