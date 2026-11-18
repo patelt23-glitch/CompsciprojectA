@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const customParticipantId = customParticipantInput ? customParticipantInput.value.trim() : '';
       const language = document.getElementById('test-language').value;
       const audioVoice = document.getElementById('audio-voice').value;
-      const dob = document.getElementById('patient-dob').value;
+      const birthYear = document.getElementById('patient-birth-year').value;
       const difficulty = document.getElementById('test-difficulty') ? document.getElementById('test-difficulty').value : 'Standard';
 
       const submitBtn = sessionForm.querySelector('button[type="submit"]');
@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
           participant_id: customParticipantId,
           language: language,
           audio_voice: audioVoice,
-          dob: dob,
+          birth_year: birthYear,
           difficulty: difficulty,
         })
       })

@@ -34,10 +34,10 @@
         <div style="font-size: 0.75rem; color: var(--text-muted);">Email</div>
         <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-main);">{{ user.email }}</div>
       </div>
-      {% if patient_profile.dob %}
+      {% if patient_profile.birth_year %}
         <div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">Date of Birth</div>
-          <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-main);">{{ patient_profile.dob|date:"M d, Y" }}</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Birth Year</div>
+          <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-main);">{{ patient_profile.birth_year }}</div>
         </div>
       {% endif %}
       <div>
@@ -159,4 +159,3 @@
   {% endif %}
 </div>
 {% endblock %}
-

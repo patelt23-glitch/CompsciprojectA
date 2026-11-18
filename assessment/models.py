@@ -22,6 +22,7 @@ class PatientProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='patient_profile')
     patient_code = models.CharField(max_length=64, unique=True, db_index=True)
     dob = models.DateField(null=True, blank=True)
+    birth_year = models.PositiveSmallIntegerField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -59,10 +60,26 @@ class PasswordResetToken(models.Model):
 def calculate_age_bracket(dob_or_date):
     if not dob_or_date:
         return "18-30 years"
+    if isinstance(dob_or_date, int):
+        today = date.today()
+        age = today.year - dob_or_date
+        if age < 18:
+            return "Under 18"
+        elif age <= 30:
+            return "18-30 years"
+        elif age <= 44:
+            return "30-44 years"
+        elif age <= 59:
+            return "45-59 years"
+        else:
+            return "60+ years"
     if isinstance(dob_or_date, str):
         try:
-            dob_or_date = datetime.strptime(dob_or_date, "%Y-%m-%d").date()
-        except ValueError:
+            if len(dob_or_date) == 4:
+                dob_or_date = int(dob_or_date)
+            else:
+                dob_or_date = datetime.strptime(dob_or_date, "%Y-%m-%d").date()
+        except (TypeError, ValueError):
             return "18-30 years"
     today = date.today()
     age = today.year - dob_or_date.year - ((today.month, today.day) < (dob_or_date.month, dob_or_date.day))
@@ -93,6 +110,7 @@ class AssessmentSession(models.Model):
     participant_id = models.CharField(max_length=64, blank=True, db_index=True)
     patient_code = models.CharField(max_length=64, db_index=True)
     dob = models.DateField(null=True, blank=True)
+    birth_year = models.PositiveSmallIntegerField(null=True, blank=True, db_index=True)
     age_bracket = models.CharField(max_length=32, default="18-30 years")
     language = models.CharField(max_length=32, default="English")
     audio_voice = models.CharField(max_length=32, default="Female")

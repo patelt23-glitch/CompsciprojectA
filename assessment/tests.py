@@ -155,6 +155,19 @@ class VisuospatialComprehensiveTests(TestCase):
         self.assertEqual(len(reset_token.otp), 6)
         self.assertTrue(reset_token.is_valid())
 
+    def test_forgot_password_api_does_not_expose_reset_secret(self):
+        """Verify password recovery APIs never return reset tokens or OTP codes."""
+        res = self.client.post(
+            '/api/forgot-password/',
+            data=json.dumps({'email': 'sarah.chen@clinic.org'}),
+            content_type='application/json',
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data, {'sent': True})
+        self.assertNotIn('otp', data)
+        self.assertNotIn('reset_link', data)
+
     def test_reset_password_with_token(self):
         """Verify setting a new password via the reset token link."""
         reset_token = PasswordResetToken.generate_for_user(self.user, expiry_minutes=15)
@@ -246,7 +259,7 @@ class VisuospatialComprehensiveTests(TestCase):
             'language': 'Spanish',
             'audio_voice': 'Female',
             'difficulty': 'Standard',
-            'dob': '1995-04-12',
+            'birth_year': '1995',
         }
         res = self.client.post('/api/sessions/', data=json.dumps(payload), content_type='application/json')
         self.assertEqual(res.status_code, 201)
@@ -258,6 +271,7 @@ class VisuospatialComprehensiveTests(TestCase):
         session = AssessmentSession.objects.get(id=data['session_id'])
         self.assertEqual(session.patient_code, 'P001')
         self.assertEqual(session.language, 'Spanish')
+        self.assertEqual(session.birth_year, 1995)
 
         # Verify 7-day expiration
         expected_expiry_min = timezone.now() + timedelta(days=6, hours=23)
@@ -760,4 +774,3 @@ class VisuospatialComprehensiveTests(TestCase):
         self.assertEqual(len(res.context['rounds_breakdown']), 1)
         self.assertEqual(res.context['rounds_breakdown'][0]['accuracy'], 50.0)
         self.assertEqual(res.context['attention']['label'], "High Consistency")
-

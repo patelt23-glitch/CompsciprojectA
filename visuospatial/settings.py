@@ -31,6 +31,8 @@ INSTALLED_APPS = [
     'assessment',
 ]
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',

@@ -132,6 +132,19 @@ def get_clinician_identity(user):
     }
 
 
+def parse_birth_year(value):
+    if not value:
+        return None
+    try:
+        birth_year = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    current_year = timezone.now().year
+    if birth_year < 1900 or birth_year > current_year:
+        return None
+    return birth_year
+
+
 # ==============================================================================
 # Public & Landing Views
 # ==============================================================================
@@ -377,8 +390,6 @@ def forgot_password_view(request):
     """
     sent = False
     error = None
-    reset_link = None
-    otp_code = None
     email_entered = ""
 
     if request.method == 'POST':
@@ -403,8 +414,8 @@ def forgot_password_view(request):
 
                 reset_record = PasswordResetToken.generate_for_user(user, expiry_minutes=15)
                 token_val = reset_record.token
-                otp_code = reset_record.otp
                 reset_link = request.build_absolute_uri(f"/reset-password/{token_val}/")
+                otp_code = reset_record.otp
 
                 # Send email notice
                 subject = "Visuospatial Assessment - Password Reset Request"
@@ -436,15 +447,11 @@ def forgot_password_view(request):
         if is_json:
             return JsonResponse({
                 'sent': True,
-                'reset_link': reset_link,
-                'otp': otp_code,
             })
 
     return render(request, 'forgot_password.html', {
         'sent': sent,
         'error': error,
-        'reset_link': reset_link,
-        'otp_code': otp_code,
         'email': email_entered,
     })
 
@@ -757,6 +764,7 @@ def api_create_session(request):
 
     custom_participant_id = data.get('participant_id', '').strip()
     dob_str = data.get('dob')
+    birth_year = parse_birth_year(data.get('birth_year'))
     language = data.get('language', 'English')
     audio_voice = data.get('audio_voice', 'Female')
     difficulty = data.get('difficulty', 'Standard')
@@ -779,8 +787,11 @@ def api_create_session(request):
             from datetime import datetime
             dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
             age_bracket = calculate_age_bracket(dob)
+            birth_year = dob.year
         except ValueError:
             pass
+    if birth_year:
+        age_bracket = calculate_age_bracket(birth_year)
 
     # Generate secure random token and SHA-256 hash
     raw_token = secrets.token_urlsafe(32)
@@ -800,6 +811,7 @@ def api_create_session(request):
             participant_id=custom_participant_id,
             patient_code=patient_code,
             dob=dob,
+            birth_year=birth_year,
             age_bracket=age_bracket,
             language=language,
             audio_voice=audio_voice,
@@ -1729,6 +1741,7 @@ def patient_signup_view(request):
         email = data.get('email', '').strip().lower()
         patient_code = data.get('patient_code', '').strip().upper()
         dob_str = data.get('dob')
+        birth_year = parse_birth_year(data.get('birth_year'))
         password = data.get('password', '')
         confirm_password = data.get('confirm_password', '')
 
@@ -1764,6 +1777,7 @@ def patient_signup_view(request):
                 try:
                     from datetime import datetime
                     dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
+                    birth_year = dob.year
                 except ValueError:
                     pass
 
@@ -1782,6 +1796,7 @@ def patient_signup_view(request):
                     user=user,
                     patient_code=patient_code,
                     dob=dob,
+                    birth_year=birth_year,
                 )
                 # Connect any existing unlinked assessments matching patient_code
                 AssessmentSession.objects.filter(

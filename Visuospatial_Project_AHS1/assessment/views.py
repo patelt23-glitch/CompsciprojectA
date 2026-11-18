@@ -463,11 +463,7 @@ def forgot_password_view(request):
                 sent = True
 
         if is_json:
-            return JsonResponse({
-                'sent': True,
-                'reset_link': reset_link,
-                'otp': otp_code,
-            })
+            return JsonResponse({'sent': True})
 
     return render(request, 'forgot_password.html', {
         'sent': sent,
