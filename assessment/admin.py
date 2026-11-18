@@ -10,7 +10,7 @@ class ClinicianProfileAdmin(admin.ModelAdmin):
 
 @admin.register(PatientProfile)
 class PatientProfileAdmin(admin.ModelAdmin):
-    list_display = ('patient_code', 'user', 'dob', 'created_at')
+    list_display = ('patient_code', 'user', 'birth_year', 'created_at')
     search_fields = ('patient_code', 'user__username', 'user__email')
 
 

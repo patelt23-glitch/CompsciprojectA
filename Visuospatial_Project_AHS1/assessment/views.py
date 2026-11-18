@@ -463,11 +463,7 @@ def forgot_password_view(request):
                 sent = True
 
         if is_json:
-            return JsonResponse({
-                'sent': True,
-                'reset_link': reset_link,
-                'otp': otp_code,
-            })
+            return JsonResponse({'sent': True})
 
     return render(request, 'forgot_password.html', {
         'sent': sent,
@@ -1143,7 +1139,7 @@ def results_view(request, session_id):
 @clinician_required
 @never_cache
 def export_csv_view(request, session_id):
-    """Export single assessment result as CSV with clinician access check."""
+    """Export a professional, structured assessment report as CSV."""
     session = get_object_or_404(
         AssessmentSession.objects.select_related('clinician', 'result'),
         id=session_id
@@ -1158,44 +1154,54 @@ def export_csv_view(request, session_id):
     result = session.result
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="assessment_{session.patient_code}.csv"'
+    response.write('\ufeff')
 
     writer = csv.writer(response)
-    writer.writerow([
-        'session_id', 'participant_id', 'patient_code', 'completed_at',
-        'difficulty', 'language', 'voice',
-        'correct_matches', 'mistakes', 'total_attempts',
-        'accuracy_percent', 'avg_latency_seconds', 'completion_seconds'
-    ])
-    writer.writerow([
-        str(session.id),
-        session.participant_id or session.patient_code,
-        session.patient_code,
-        session.completed_at.isoformat() if session.completed_at else '',
-        session.difficulty,
-        session.language,
-        session.audio_voice,
-        result.completed_pairs,
-        result.mistakes,
-        result.total_attempts,
-        result.accuracy_percent,
-        round(result.avg_latency_ms / 1000.0, 2),
-        round(result.completion_time_ms / 1000.0, 1),
-    ])
+    writer.writerow(['VISUOSPATIAL ASSESSMENT REPORT'])
+    writer.writerow(['Export generated', timezone.now().strftime('%B %d, %Y at %I:%M %p')])
+    writer.writerow(['Clinician', session.clinician.display_name])
+    writer.writerow(['Organization', session.clinician.organization or 'Independent'])
     writer.writerow([])
-    writer.writerow(['round_number', 'practice', 'attempt_number', 'selected_cards',
-                     'is_correct', 'response_latency_ms', 'target_shape'])
+    writer.writerow(['PATIENT AND ASSESSMENT INFORMATION'])
+    writer.writerow(['Field', 'Value'])
+    writer.writerow(['Session ID', str(session.id)])
+    writer.writerow(['Patient Code', session.patient_code])
+    writer.writerow(['Participant ID', session.participant_id or session.patient_code])
+    writer.writerow(['Age Bracket', session.age_bracket])
+    writer.writerow(['Difficulty', session.difficulty])
+    writer.writerow(['Language', session.language])
+    writer.writerow(['Audio Guidance', session.audio_voice])
+    writer.writerow(['Date Completed', session.completed_at.strftime('%B %d, %Y at %I:%M %p') if session.completed_at else 'Not completed'])
+    writer.writerow([])
+    writer.writerow(['PERFORMANCE SUMMARY'])
+    writer.writerow(['Metric', 'Value', 'Unit'])
+    writer.writerow(['Overall Accuracy', f"{result.accuracy_percent:.1f}", '%'])
+    writer.writerow(['Correct Matches', result.completed_pairs, 'pairs'])
+    writer.writerow(['Total Attempts', result.total_attempts, 'attempts'])
+    writer.writerow(['Mistakes', result.mistakes, 'mistakes'])
+    writer.writerow(['Average Response Time', f"{result.avg_latency_ms / 1000:.2f}", 'seconds'])
+    writer.writerow(['Completion Time', f"{result.completion_time_ms / 1000:.1f}", 'seconds'])
+    writer.writerow([])
+    writer.writerow(['ATTEMPT DETAIL'])
+    writer.writerow(['Round', 'Practice', 'Attempt', 'Selected Cards', 'Correct', 'Response Time (seconds)', 'Target Shape'])
     for rnd in session.rounds.prefetch_related('attempts').all():
         for event in rnd.attempts.all():
-            writer.writerow([rnd.round_number, rnd.is_practice, event.attempt_number,
-                             json.dumps(event.selected_cards), event.is_correct,
-                             event.response_latency_ms, event.target_shape])
+            writer.writerow([
+                rnd.round_number,
+                'Yes' if rnd.is_practice else 'No',
+                event.attempt_number,
+                json.dumps(event.selected_cards),
+                'Yes' if event.is_correct else 'No',
+                f"{event.response_latency_ms / 1000:.2f}",
+                event.target_shape,
+            ])
     return response
 
 
 @clinician_required
 @never_cache
 def dashboard_export_csv_view(request):
-    """Export all completed assessment results for the clinician."""
+    """Export all completed assessment results in a professional CSV report."""
     clinician, _ = ClinicianProfile.objects.get_or_create(user=request.user)
     completed_sessions = AssessmentSession.objects.filter(
         clinician=clinician,
@@ -1204,13 +1210,21 @@ def dashboard_export_csv_view(request):
 
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename="all_assessment_results.csv"'
+    response.write('\ufeff')
 
     writer = csv.writer(response)
+    writer.writerow(['CLINICAL ASSESSMENT RESULTS REPORT'])
+    writer.writerow(['Export generated', timezone.now().strftime('%B %d, %Y at %I:%M %p')])
+    writer.writerow(['Clinician', clinician.display_name])
+    writer.writerow(['Organization', clinician.organization or 'Independent'])
+    writer.writerow(['Scope', 'All completed assessments'])
+    writer.writerow(['Total Records', completed_sessions.count()])
+    writer.writerow([])
     writer.writerow([
-        'session_id', 'participant_id', 'patient_code', 'completed_at',
-        'difficulty', 'language', 'voice',
-        'correct_matches', 'mistakes', 'total_attempts',
-        'accuracy_percent', 'avg_latency_seconds', 'completion_seconds'
+        'Session ID', 'Patient Code', 'Participant ID', 'Age Bracket',
+        'Date Completed', 'Difficulty', 'Language', 'Audio Guidance',
+        'Correct Matches', 'Mistakes', 'Total Attempts', 'Accuracy (%)',
+        'Average Latency (seconds)', 'Completion Time (seconds)'
     ])
 
     for s in completed_sessions:
@@ -1218,29 +1232,20 @@ def dashboard_export_csv_view(request):
             r = s.result
             writer.writerow([
                 str(s.id),
-                s.participant_id or s.patient_code,
                 s.patient_code,
-                s.completed_at.isoformat() if s.completed_at else '',
+                s.participant_id or s.patient_code,
+                s.age_bracket,
+                s.completed_at.strftime('%Y-%m-%d %I:%M %p') if s.completed_at else '',
                 s.difficulty,
                 s.language,
                 s.audio_voice,
                 r.completed_pairs,
                 r.mistakes,
                 r.total_attempts,
-                r.accuracy_percent,
-                round(r.avg_latency_ms / 1000.0, 2),
-                round(r.completion_time_ms / 1000.0, 1),
+                f"{r.accuracy_percent:.1f}",
+                f"{r.avg_latency_ms / 1000:.2f}",
+                f"{r.completion_time_ms / 1000:.1f}",
             ])
-
-    writer.writerow([])
-    writer.writerow(['session_id', 'round_number', 'practice', 'attempt_number',
-                     'selected_cards', 'is_correct', 'response_latency_ms', 'target_shape'])
-    for session in completed_sessions:
-        for rnd in session.rounds.prefetch_related('attempts').all():
-            for event in rnd.attempts.all():
-                writer.writerow([str(session.id), rnd.round_number, rnd.is_practice,
-                                 event.attempt_number, json.dumps(event.selected_cards),
-                                 event.is_correct, event.response_latency_ms, event.target_shape])
     return response
 
 

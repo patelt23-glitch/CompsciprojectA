@@ -52,7 +52,7 @@ class Command(BaseCommand):
                 id=session_id,
                 clinician=profile,
                 patient_code="PPST-4938",
-                dob=date(1998, 5, 14),
+                birth_year=1998,
                 age_bracket="18-30 years",
                 language="English",
                 audio_voice="Female",
@@ -252,7 +252,7 @@ class Command(BaseCommand):
             pending_session = AssessmentSession.objects.create(
                 clinician=profile,
                 patient_code="PPST-5120",
-                dob=date(1995, 8, 22),
+                birth_year=1995,
                 age_bracket="18-30 years",
                 language="English",
                 audio_voice="Female",
