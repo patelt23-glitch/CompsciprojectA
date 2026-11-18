@@ -251,7 +251,7 @@ class VisuospatialComprehensiveTests(TestCase):
     # ==========================================================================
 
     def test_create_session_with_custom_participant_id(self):
-        """Verify custom participant ID (e.g. P001) and 7-day expiration."""
+        """Verify custom participant ID, 7-day expiry, and birth-year age brackets."""
         self.client.login(username='dr_sarah', password='StrongPassword2026!')
 
         payload = {
@@ -276,6 +276,12 @@ class VisuospatialComprehensiveTests(TestCase):
         # Verify 7-day expiration
         expected_expiry_min = timezone.now() + timedelta(days=6, hours=23)
         self.assertGreater(session.expires_at, expected_expiry_min)
+
+    def test_birth_year_age_brackets(self):
+        """Verify birth-year strings and integers calculate the same age bracket."""
+        birth_year = timezone.now().year - 35
+        self.assertEqual(calculate_age_bracket(birth_year), calculate_age_bracket(str(birth_year)))
+        self.assertEqual(calculate_age_bracket(str(birth_year)), '30-44 years')
 
     def test_difficulty_settings_round_generation(self):
         """Verify Standard creates 3 rounds and Advanced creates 4 rounds with decks."""

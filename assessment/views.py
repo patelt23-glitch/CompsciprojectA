@@ -763,7 +763,6 @@ def api_create_session(request):
         return JsonResponse({'error': 'Invalid JSON body'}, status=400)
 
     custom_participant_id = data.get('participant_id', '').strip()
-    dob_str = data.get('dob')
     birth_year = parse_birth_year(data.get('birth_year'))
     language = data.get('language', 'English')
     audio_voice = data.get('audio_voice', 'Female')
@@ -780,16 +779,7 @@ def api_create_session(request):
         random_digits = secrets.randbelow(9000) + 1000
         patient_code = f"PPST-{random_digits}"
 
-    dob = None
     age_bracket = "18-30 years"
-    if dob_str:
-        try:
-            from datetime import datetime
-            dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
-            age_bracket = calculate_age_bracket(dob)
-            birth_year = dob.year
-        except ValueError:
-            pass
     if birth_year:
         age_bracket = calculate_age_bracket(birth_year)
 
@@ -810,7 +800,6 @@ def api_create_session(request):
             patient=matching_patient,
             participant_id=custom_participant_id,
             patient_code=patient_code,
-            dob=dob,
             birth_year=birth_year,
             age_bracket=age_bracket,
             language=language,
@@ -1740,7 +1729,6 @@ def patient_signup_view(request):
         name = data.get('name', '').strip()
         email = data.get('email', '').strip().lower()
         patient_code = data.get('patient_code', '').strip().upper()
-        dob_str = data.get('dob')
         birth_year = parse_birth_year(data.get('birth_year'))
         password = data.get('password', '')
         confirm_password = data.get('confirm_password', '')
@@ -1772,15 +1760,6 @@ def patient_signup_view(request):
                 error = ' '.join(e.messages)
 
         if not error:
-            dob = None
-            if dob_str:
-                try:
-                    from datetime import datetime
-                    dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
-                    birth_year = dob.year
-                except ValueError:
-                    pass
-
             if not patient_code:
                 random_digits = secrets.randbelow(9000) + 1000
                 patient_code = f"PT-{random_digits}"
@@ -1795,7 +1774,6 @@ def patient_signup_view(request):
                 patient_profile = PatientProfile.objects.create(
                     user=user,
                     patient_code=patient_code,
-                    dob=dob,
                     birth_year=birth_year,
                 )
                 # Connect any existing unlinked assessments matching patient_code
