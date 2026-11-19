@@ -247,7 +247,9 @@ def generate_assessment_pdf(session, result):
             round_label = f"Round {r.round_number} (Practice)"
             acc_str = f"{r_acc:.1f}% (Practice)"
         else:
-            if r.mode == 'shape_direction':
+            if r.mode == 'target_match':
+                desc = "Target Match"
+            elif r.mode == 'shape_direction':
                 desc = "Shape + Directional Matching"
             elif r.mode == 'complex_matching':
                 desc = "Complex Multi-Attribute Matching"
@@ -347,4 +349,3 @@ def generate_assessment_pdf(session, result):
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
-

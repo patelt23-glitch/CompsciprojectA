@@ -639,6 +639,12 @@ class VisuospatialEngine {
 
     this.selectedCards.push({ element: cardEl, index: idx, data: this.deck[idx] });
 
+    if (this.currentRound.mode === 'target_match') {
+      this.isInputLocked = true;
+      this.evaluateSelection();
+      return;
+    }
+
     if (this.selectedCards.length === 1) {
       this.actionCueLabel.textContent = this.t('select_second');
     } else if (this.selectedCards.length === 2) {
@@ -652,17 +658,22 @@ class VisuospatialEngine {
     const latencyMs = Math.max(80, Math.round(endLatencyTime - this.attemptStartTime));
 
     const card1 = this.selectedCards[0];
-    const card2 = this.selectedCards[1];
+    const card2 = this.currentRound.mode === 'target_match' ? null : this.selectedCards[1];
 
-    // Local pre-check matching key
-    const isMatch = (card1.data.match_key === card2.data.match_key);
-    const targetShape = `${card1.data.shapeName} (${card1.data.direction})`;
+    // Target Match requires both cards to match the displayed target.
+    let isMatch = card2 ? (card1.data.match_key === card2.data.match_key) : true;
+    let targetShape = `${card1.data.shapeName} (${card1.data.direction})`;
+    if (this.currentRound.mode === 'target_match' && this.currentRound.target) {
+      const targetKey = this.currentRound.target.match_key;
+      isMatch = card1.data.match_key === targetKey;
+      targetShape = `${this.currentRound.target.shape} (${this.currentRound.target.direction})`;
+    }
 
     // Record attempt to local collection
     const attemptPayload = {
       round: this.currentRound.round_number,
       attempt: this.currentAttemptNumber,
-      selected: [card1.index, card2.index],
+      selected: card2 ? [card1.index, card2.index] : [card1.index],
       target_shape: targetShape,
       is_correct: isMatch,
       response_latency_ms: latencyMs,
@@ -679,9 +690,9 @@ class VisuospatialEngine {
       this.speak(this.t('match_success'));
 
       card1.element.classList.add('is-matched');
-      card2.element.classList.add('is-matched');
+      if (card2) card2.element.classList.add('is-matched');
       card1.element.disabled = true;
-      card2.element.disabled = true;
+      if (card2) card2.element.disabled = true;
 
       this.matchedPairsInRound++;
       this.matchedCountLabel.textContent = this.t('pairs_matched', {
@@ -707,14 +718,14 @@ class VisuospatialEngine {
       this.speak(this.t('match_error'));
 
       card1.element.classList.add('is-mismatch');
-      card2.element.classList.add('is-mismatch');
+      if (card2) card2.element.classList.add('is-mismatch');
       this.actionCueLabel.textContent = this.t('match_error');
 
       setTimeout(() => {
         card1.element.classList.remove('is-flipped', 'is-mismatch');
-        card2.element.classList.remove('is-flipped', 'is-mismatch');
+        if (card2) card2.element.classList.remove('is-flipped', 'is-mismatch');
         card1.element.setAttribute('aria-label', this.t('card_label', { n: card1.index + 1, status: this.t('card_hidden') }));
-        card2.element.setAttribute('aria-label', this.t('card_label', { n: card2.index + 1, status: this.t('card_hidden') }));
+        if (card2) card2.element.setAttribute('aria-label', this.t('card_label', { n: card2.index + 1, status: this.t('card_hidden') }));
 
         this.selectedCards = [];
         this.isInputLocked = false;

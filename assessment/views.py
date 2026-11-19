@@ -845,7 +845,7 @@ def api_create_session(request):
                     round_number=round_number,
                     is_practice=False,
                     mode='target_match',
-                    pair_count=(round_number + 1),
+                    pair_count=1,
                     card_count=len(deck),
                     study_time_ms=max(3000, 5000 - ((round_number - 2) * 500)),
                     deck_layout=deck,
@@ -1066,7 +1066,15 @@ def api_submit_attempt(request, session_id):
     target_shape = ''
     deck = assessment_round.deck_layout or []
 
-    if isinstance(selected_cards, list) and len(selected_cards) >= 2:
+    if assessment_round.mode == 'target_match' and isinstance(selected_cards, list) and len(selected_cards) == 1:
+        idx = selected_cards[0]
+        if isinstance(idx, int) and 0 <= idx < len(deck):
+            card = deck[idx]
+            target_card = deck[0] if deck else {}
+            target_key = target_card.get('match_key', '')
+            target_shape = f"{target_card.get('shape', '')} ({target_card.get('direction', 'none')})"
+            is_correct = card.get('match_key') == target_key
+    elif isinstance(selected_cards, list) and len(selected_cards) >= 2:
         idx1, idx2 = selected_cards[0], selected_cards[1]
         if isinstance(idx1, int) and isinstance(idx2, int):
             if 0 <= idx1 < len(deck) and 0 <= idx2 < len(deck) and idx1 != idx2:
@@ -1150,14 +1158,16 @@ def api_complete_session(request, session_id):
             try:
                 rnd = session.rounds.get(round_number=r_num)
                 cards = item.get('selected', [])
-                if len(cards) >= 2:
-                    c1, c2 = cards[0], cards[1]
+                if rnd.mode == 'target_match' and len(cards) == 1:
+                    c1 = cards[0]
                     d = rnd.deck_layout or []
                     match = False
                     tgt = ''
-                    if 0 <= c1 < len(d) and 0 <= c2 < len(d):
-                        match = (d[c1].get('match_key') == d[c2].get('match_key'))
-                        tgt = d[c1].get('shape', '')
+                    if isinstance(c1, int) and 0 <= c1 < len(d):
+                        target_card = d[0] if d else {}
+                        target_key = target_card.get('match_key', '')
+                        match = d[c1].get('match_key') == target_key
+                        tgt = f"{target_card.get('shape', '')} ({target_card.get('direction', 'none')})"
                     ResponseEvent.objects.create(
                         round=rnd,
                         attempt_number=item.get('attempt', rnd.attempts.count() + 1),
@@ -1216,7 +1226,14 @@ def api_complete_session(request, session_id):
                 all_scored_latencies.extend(r_latencies)
 
                 level_key = f"level_{r.round_number}"
-                level_title = "Shape Matching" if r.round_number <= 2 else ("Shape + Direction" if r.round_number == 3 else "Complex Matching")
+                if r.mode == 'target_match':
+                    level_title = "Target Match"
+                elif r.round_number <= 2:
+                    level_title = "Shape Matching"
+                elif r.round_number == 3:
+                    level_title = "Shape + Direction"
+                else:
+                    level_title = "Complex Matching"
                 level_summary[level_key] = {
                     'level_number': r.round_number,
                     'title': level_title,
@@ -1339,6 +1356,8 @@ def results_view(request, session_id):
 
         if r.is_practice:
             title = "Practice: Shape Matching"
+        elif r.mode == 'target_match':
+            title = "Target Match"
         elif r.mode == 'shape_direction':
             title = "Shape + Direction Matching"
         elif r.mode == 'complex_matching':
