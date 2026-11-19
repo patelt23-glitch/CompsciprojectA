@@ -441,6 +441,58 @@ class VisuospatialComprehensiveTests(TestCase):
         self.assertEqual(incorrect.status_code, 200)
         self.assertFalse(incorrect.json()['is_correct'])
 
+    def test_target_match_completion_and_results(self):
+        """Verify Target Match attempts produce authoritative completed results."""
+        raw_token = "target-result-token"
+        session = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-TARGET-RESULT",
+            status="IN_PROGRESS",
+            token_hash=AssessmentSession.hash_token(raw_token),
+            token_raw=raw_token,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        deck = [
+            {'id': 0, 'shape': 'circle', 'direction': 'up', 'match_key': 'target_circle_up'},
+            {'id': 1, 'shape': 'triangle', 'direction': 'right', 'match_key': 'target_triangle_right'},
+            {'id': 2, 'shape': 'circle', 'direction': 'up', 'match_key': 'target_circle_up'},
+        ]
+        target_round = AssessmentRound.objects.create(
+            session=session,
+            round_number=1,
+            is_practice=False,
+            mode='target_match',
+            pair_count=1,
+            card_count=3,
+            deck_layout=deck,
+        )
+
+        complete = self.client.post(
+            f'/api/sessions/{session.id}/complete/',
+            data=json.dumps({
+                'token': raw_token,
+                'selections': [{
+                    'round': 1,
+                    'attempt': 1,
+                    'selected': [0],
+                    'response_latency_ms': 1250,
+                }],
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(complete.status_code, 201)
+        session.refresh_from_db()
+        self.assertEqual(session.status, 'COMPLETED')
+        self.assertTrue(hasattr(session, 'result'))
+        self.assertEqual(session.result.accuracy_percent, 100.0)
+        event = target_round.attempts.get(attempt_number=1)
+        self.assertTrue(event.is_correct)
+        self.assertEqual(event.response_latency_ms, 1250)
+        self.assertEqual(
+            session.result.level_summary_json['levels']['level_1']['title'],
+            'Target Match',
+        )
+
     # ==========================================================================
     # 6. Patient Link & Security: Mandatory Token Enforcement
     # ==========================================================================
