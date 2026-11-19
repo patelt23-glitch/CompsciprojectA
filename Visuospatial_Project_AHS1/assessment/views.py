@@ -757,7 +757,7 @@ def patient_test_view(request, token):
     # Assemble authoritative rounds data
     rounds_data = []
     for r in session.rounds.all().order_by('round_number'):
-        rounds_data.append({
+        round_data = {
             'round_id': r.id,
             'round_number': r.round_number,
             'is_practice': r.is_practice,
@@ -766,7 +766,15 @@ def patient_test_view(request, token):
             'card_count': r.card_count,
             'study_time_ms': r.study_time_ms,
             'deck': r.deck_layout,
-        })
+        }
+        if r.mode == 'target_match' and r.deck_layout:
+            target_card = r.deck_layout[0]
+            round_data['target'] = {
+                'shape': target_card.get('shape', ''),
+                'direction': target_card.get('direction', 'none'),
+                'match_key': target_card.get('match_key', ''),
+            }
+        rounds_data.append(round_data)
 
     context = {
         'session': session,
@@ -845,8 +853,14 @@ def api_submit_attempt(request, session_id):
         return JsonResponse({'error': 'Select two distinct valid cards.'}, status=400)
     idx1, idx2 = selected_cards
     card1, card2 = deck[idx1], deck[idx2]
-    is_correct = card1.get('match_key') == card2.get('match_key')
-    target_shape = card1.get('shape', '')
+    if assessment_round.mode == 'target_match':
+        target_card = deck[0]
+        target_key = target_card.get('match_key', '')
+        is_correct = card1.get('match_key') == target_key and card2.get('match_key') == target_key
+        target_shape = f"{target_card.get('shape', '')} ({target_card.get('direction', 'none')})"
+    else:
+        is_correct = card1.get('match_key') == card2.get('match_key')
+        target_shape = card1.get('shape', '')
     # Completion retries and repeated network requests must not duplicate raw
     # events. The browser numbers attempts monotonically across all rounds.
     with transaction.atomic():

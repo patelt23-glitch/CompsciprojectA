@@ -373,6 +373,74 @@ class VisuospatialComprehensiveTests(TestCase):
         self.assertEqual(r4.study_time_ms, 3000)
         self.assertEqual(len(r4.deck_layout), 10)
 
+        # Target Match session
+        res_target = self.client.post('/api/sessions/', data=json.dumps({
+            'difficulty': 'Target Match',
+        }), content_type='application/json')
+        self.assertEqual(res_target.status_code, 201)
+        session_target = AssessmentSession.objects.get(id=res_target.json()['session_id'])
+        self.assertEqual(session_target.rounds.count(), 4)
+        target_round = session_target.rounds.get(round_number=2)
+        self.assertEqual(target_round.mode, 'target_match')
+        self.assertGreaterEqual(len(target_round.deck_layout), 6)
+        target_card = target_round.deck_layout[0]
+        self.assertIn('shape', target_card)
+        self.assertIn('direction', target_card)
+
+    def test_target_match_server_validation(self):
+        """Target Match scoring requires both selected cards to match the deck target."""
+        raw_token = "target-match-token"
+        session = AssessmentSession.objects.create(
+            clinician=self.profile,
+            patient_code="PT-TARGET",
+            status="IN_PROGRESS",
+            token_hash=AssessmentSession.hash_token(raw_token),
+            token_raw=raw_token,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        deck = [
+            {'id': 0, 'shape': 'circle', 'direction': 'up', 'match_key': 'target_circle_up'},
+            {'id': 1, 'shape': 'triangle', 'direction': 'right', 'match_key': 'target_triangle_right'},
+            {'id': 2, 'shape': 'circle', 'direction': 'up', 'match_key': 'target_circle_up'},
+        ]
+        target_round = AssessmentRound.objects.create(
+            session=session,
+            round_number=1,
+            is_practice=False,
+            mode='target_match',
+            pair_count=1,
+            card_count=3,
+            deck_layout=deck,
+        )
+
+        correct = self.client.post(
+            f'/api/sessions/{session.id}/attempts/',
+            data=json.dumps({
+                'token': raw_token,
+                'round': target_round.round_number,
+                'attempt': 1,
+                'selected': [0, 2],
+                'response_latency_ms': 1500,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(correct.status_code, 200)
+        self.assertTrue(correct.json()['is_correct'])
+
+        incorrect = self.client.post(
+            f'/api/sessions/{session.id}/attempts/',
+            data=json.dumps({
+                'token': raw_token,
+                'round': target_round.round_number,
+                'attempt': 2,
+                'selected': [0, 1],
+                'response_latency_ms': 1800,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(incorrect.status_code, 200)
+        self.assertFalse(incorrect.json()['is_correct'])
+
     # ==========================================================================
     # 6. Patient Link & Security: Mandatory Token Enforcement
     # ==========================================================================

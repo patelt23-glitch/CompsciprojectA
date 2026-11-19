@@ -93,6 +93,20 @@ def generate_deck_for_round(pair_count, mode='shapes'):
             }
             pairs.extend([pair_spec.copy(), pair_spec.copy()])
 
+    elif mode == 'target':
+        # Target Match: all pair attributes remain visible, with the authoritative target
+        # selected independently by shape and direction.
+        for i in range(pair_count):
+            shape_info = shapes_palette[i % len(shapes_palette)]
+            direction = directions_palette[i % len(directions_palette)]
+            pair_spec = {
+                'shape': shape_info['shape'],
+                'direction': direction,
+                'color': shape_info['color'],
+                'match_key': f"target_{shape_info['shape']}_{direction}",
+            }
+            pairs.extend([pair_spec.copy(), pair_spec.copy()])
+
     else:
         # Standard shape matching
         for i in range(pair_count):
@@ -812,7 +826,31 @@ def api_create_session(request):
         )
 
         # Configure rounds based on selected Difficulty setting
-        if difficulty.lower() == 'advanced':
+        if difficulty.lower() == 'target match':
+            deck1 = generate_deck_for_round(2, mode='practice')
+            AssessmentRound.objects.create(
+                session=session, round_number=1, is_practice=True,
+                mode='practice_round', pair_count=2, card_count=4,
+                study_time_ms=5000, deck_layout=deck1
+            )
+            target_decks = [
+                generate_deck_for_round(3, mode='target'),
+                generate_deck_for_round(4, mode='target'),
+                generate_deck_for_round(5, mode='target'),
+            ]
+            for round_number, deck in enumerate(target_decks, start=2):
+                target_card = deck[0]
+                AssessmentRound.objects.create(
+                    session=session,
+                    round_number=round_number,
+                    is_practice=False,
+                    mode='target_match',
+                    pair_count=(round_number + 1),
+                    card_count=len(deck),
+                    study_time_ms=max(3000, 5000 - ((round_number - 2) * 500)),
+                    deck_layout=deck,
+                )
+        elif difficulty.lower() == 'advanced':
             # Advanced configuration: 4 rounds including practice, rotations, and shorter study times
             # Round 1: Practice (2 pairs = 4 cards, 5s study)
             deck1 = generate_deck_for_round(2, mode='practice')
@@ -936,7 +974,7 @@ def patient_test_view(request, token):
     # Assemble authoritative rounds data
     rounds_data = []
     for r in session.rounds.all().order_by('round_number'):
-        rounds_data.append({
+        round_data = {
             'round_id': r.id,
             'round_number': r.round_number,
             'is_practice': r.is_practice,
@@ -945,7 +983,15 @@ def patient_test_view(request, token):
             'card_count': r.card_count,
             'study_time_ms': r.study_time_ms,
             'deck': r.deck_layout,
-        })
+        }
+        if r.mode == 'target_match' and r.deck_layout:
+            target = r.deck_layout[0]
+            round_data['target'] = {
+                'shape': target.get('shape', ''),
+                'direction': target.get('direction', 'none'),
+                'match_key': target.get('match_key', ''),
+            }
+        rounds_data.append(round_data)
 
     context = {
         'session': session,
@@ -1027,7 +1073,13 @@ def api_submit_attempt(request, session_id):
                 card1 = deck[idx1]
                 card2 = deck[idx2]
                 target_shape = card1.get('shape', '')
-                if card1.get('match_key') == card2.get('match_key'):
+                if assessment_round.mode == 'target_match':
+                    target_card = deck[0]
+                    target_key = target_card.get('match_key', '')
+                    target_shape = f"{target_card.get('shape', '')} ({target_card.get('direction', 'none')})"
+                    if card1.get('match_key') == target_key and card2.get('match_key') == target_key:
+                        is_correct = True
+                elif card1.get('match_key') == card2.get('match_key'):
                     is_correct = True
 
     attempt = ResponseEvent.objects.create(
