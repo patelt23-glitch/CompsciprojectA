@@ -13,6 +13,7 @@ COLOR = {'arrow': '#2563eb', 'triangle': '#d97706', 'l_shape': '#7c3aed',
 PRESETS = {
     'Standard': {'card_counts': [6, 8, 10], 'study_time_ms': [5000, 4000, 3000]},
     'Advanced': {'card_counts': [6, 8, 12], 'study_time_ms': [4000, 3000, 2500]},
+    'Target Match': {'card_counts': [6, 8, 10], 'study_time_ms': [5000, 4000, 3000]},
 }
 
 
@@ -20,7 +21,7 @@ def parse_configuration(data):
     """Reject invalid doctor controls rather than silently dropping settings."""
     difficulty = data.get('difficulty', 'Standard')
     if difficulty not in PRESETS:
-        raise ValueError('Difficulty must be Standard or Advanced.')
+        raise ValueError('Difficulty must be Standard, Advanced, or Target Match.')
     defaults = PRESETS[difficulty]
     counts = data.get('card_counts', defaults['card_counts'])
     if not isinstance(counts, list) or len(counts) != 3 or any(type(n) is not int or n not in (4, 6, 8, 10, 12) for n in counts):
@@ -118,6 +119,16 @@ def round_specs(config):
     yield {'round_number': 1, 'is_practice': True, 'mode': 'practice_round',
            'pair_count': 2, 'card_count': 4, 'study_time_ms': 5000,
            'deck_layout': create_deck(2, 'practice')}
+    if config['difficulty'] == 'Target Match':
+        target_modes = ('direction', 'target', 'target')
+        for i, (count, duration, mode) in enumerate(zip(config['card_counts'], config['study_time_ms'],
+                                                        target_modes), start=2):
+            deck = create_deck(count // 2, mode, config['shape_types'])
+            target = deck[0]
+            yield {'round_number': i, 'is_practice': False, 'mode': 'target_match',
+                   'pair_count': count // 2, 'card_count': count, 'study_time_ms': duration,
+                   'deck_layout': deck}
+        return
     for i, (count, duration, mode) in enumerate(zip(config['card_counts'], config['study_time_ms'],
                                                     ('shapes', 'direction', 'complex')), start=2):
         yield {'round_number': i, 'is_practice': False, 'mode': mode,

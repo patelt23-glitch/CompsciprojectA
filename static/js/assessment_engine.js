@@ -307,6 +307,8 @@ class VisuospatialEngine {
     this.matchedCountLabel = document.getElementById('matched-count-label');
     this.actionCueLabel = document.getElementById('action-cue-label');
     this.roundStatusLabel = document.getElementById('round-status-label');
+    this.targetMatchPanel = document.getElementById('target-match-panel');
+    this.targetMatchLabel = document.getElementById('target-match-label');
   }
 
   applyLocalization() {
@@ -445,6 +447,19 @@ class VisuospatialEngine {
 
     this.gameTitle.textContent = this.t('study_title');
     this.gameSubhead.textContent = this.t('study_instruction');
+
+    if (roundConfig.mode === 'target_match' && roundConfig.target) {
+      const targetShape = roundConfig.target.shape || 'shape';
+      const targetDirection = roundConfig.target.direction === 'none'
+        ? ''
+        : ` pointing ${roundConfig.target.direction}`;
+      this.targetMatchPanel.style.display = 'block';
+      this.targetMatchLabel.textContent = `Find the ${targetShape}${targetDirection}`;
+      this.gameSubhead.textContent = 'Study the cards, then find both cards matching the target.';
+      this.speak(`Target Match. Find the ${targetShape}${targetDirection}`);
+    } else {
+      this.targetMatchPanel.style.display = 'none';
+    }
 
     this.pairsNeededBadge.textContent = this.t('pairs_matched', { matched: 0, total: roundConfig.pair_count });
     this.matchedCountLabel.textContent = this.t('pairs_matched', { matched: 0, total: roundConfig.pair_count });
