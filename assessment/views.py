@@ -1594,7 +1594,7 @@ def export_csv_view(request, session_id):
 
     result = session.result
     response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="assessment_{session.patient_code}.csv"'
+    response['Content-Disposition'] = f'attachment; filename="assessment_{session.id}.csv"'
     response.write('\ufeff')
 
     writer = csv.writer(response)
@@ -1615,13 +1615,15 @@ def export_csv_view(request, session_id):
     writer.writerow(['Difficulty', session.difficulty])
     writer.writerow(['Language', session.language])
     writer.writerow(['Audio Guidance', session.audio_voice])
-    writer.writerow(['Date Completed', session.completed_at.strftime('%B %d, %Y at %I:%M %p') if session.completed_at else 'Not completed'])
+    writer.writerow(['Date Started (ISO 8601)', session.started_at.isoformat() if session.started_at else ''])
+    writer.writerow(['Date Completed (ISO 8601)', session.completed_at.isoformat() if session.completed_at else ''])
     writer.writerow([])
 
     writer.writerow(['PERFORMANCE SUMMARY'])
+    writer.writerow(['Scoring Scope', 'Clinical rounds only; practice excluded'])
     writer.writerow(['Metric', 'Value', 'Unit'])
     writer.writerow(['Overall Accuracy', f"{result.accuracy_percent:.1f}", '%'])
-    writer.writerow(['Correct Matches', result.completed_pairs, 'pairs'])
+    writer.writerow(['Scored Pair Target', result.completed_pairs, 'pairs'])
     writer.writerow(['Total Attempts', result.total_attempts, 'attempts'])
     writer.writerow(['Mistakes', result.mistakes, 'mistakes'])
     writer.writerow(['Error Rate', f"{(result.mistakes / result.total_attempts * 100):.1f}" if result.total_attempts else '0.0', '%'])
@@ -1632,7 +1634,7 @@ def export_csv_view(request, session_id):
     writer.writerow([])
 
     writer.writerow(['ROUND-BY-ROUND PERFORMANCE'])
-    writer.writerow(['Round', 'Description', 'Pairs', 'Cards', 'Correct', 'Mistakes', 'Accuracy (%)', 'Average Latency (seconds)'])
+    writer.writerow(['Round', 'Description', 'Pairs', 'Cards', 'Correct Attempts', 'Mistakes', 'Accuracy (%)', 'Average Response Time (seconds)', 'Mode', 'Is Practice', 'Included in Clinical Score', 'Total Attempts', 'Fastest Response Time (seconds)', 'Slowest Response Time (seconds)', 'Study Time (seconds)', 'Estimated Completion Time (seconds)'])
     rounds = session.rounds.prefetch_related('attempts').order_by('round_number')
     for assessment_round in rounds:
         attempts = list(assessment_round.attempts.all())
@@ -1651,8 +1653,34 @@ def export_csv_view(request, session_id):
             mistakes,
             f"{accuracy:.1f}",
             f"{avg_latency:.2f}",
+            assessment_round.mode,
+            assessment_round.is_practice,
+            not assessment_round.is_practice,
+            len(attempts),
+            f"{min(latencies) / 1000:.2f}" if latencies else '',
+            f"{max(latencies) / 1000:.2f}" if latencies else '',
+            f"{assessment_round.study_time_ms / 1000:.3f}",
+            f"{(sum(latencies) + assessment_round.study_time_ms) / 1000:.3f}",
         ])
 
+    writer.writerow([])
+    writer.writerow(['ATTEMPT-LEVEL DATA'])
+    writer.writerow(['Session ID', 'Patient Code', 'Participant ID', 'Difficulty',
+                     'Round', 'Mode', 'Is Practice', 'Included in Clinical Score',
+                     'Attempt Number', 'Selected Cards (JSON)', 'Target Shape',
+                     'Is Correct', 'Response Time (milliseconds)',
+                     'Response Time (seconds)', 'Recorded At (ISO 8601)'])
+    for assessment_round in rounds:
+        for attempt in assessment_round.attempts.all():
+            writer.writerow([
+                str(session.id), session.patient_code,
+                session.participant_id or session.patient_code, session.difficulty,
+                assessment_round.round_number, assessment_round.mode,
+                assessment_round.is_practice, not assessment_round.is_practice,
+                attempt.attempt_number, json.dumps(attempt.selected_cards),
+                attempt.target_shape, attempt.is_correct, attempt.response_latency_ms,
+                f"{attempt.response_latency_ms / 1000:.3f}", attempt.created_at.isoformat(),
+            ])
     writer.writerow([])
     writer.writerow(['CLINICIAN NOTES'])
     writer.writerow([result.clinician_notes or 'No notes recorded'])
@@ -1666,7 +1694,8 @@ def dashboard_export_csv_view(request):
     clinician, _ = ClinicianProfile.objects.get_or_create(user=request.user)
     completed_sessions = AssessmentSession.objects.filter(
         clinician=clinician,
-        status='COMPLETED'
+        status='COMPLETED',
+        result__isnull=False,
     ).select_related('result').order_by('-completed_at')
 
     response = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -1687,11 +1716,11 @@ def dashboard_export_csv_view(request):
         'Participant ID',
         'Birth Year',
         'Age Bracket',
-        'Date Completed',
+        'Date Completed (ISO 8601)',
         'Difficulty',
         'Language',
         'Audio Guidance',
-        'Correct Matches',
+        'Scored Pair Target',
         'Mistakes',
         'Total Attempts',
         'Error Rate (%)',
@@ -1701,6 +1730,9 @@ def dashboard_export_csv_view(request):
         'Slowest Latency (seconds)',
         'Completion Time (seconds)',
         'Clinician Notes',
+        'Assessment Status',
+        'Date Started (ISO 8601)',
+        'Scoring Scope',
     ])
 
     for s in completed_sessions:
@@ -1713,7 +1745,7 @@ def dashboard_export_csv_view(request):
                 s.participant_id or s.patient_code,
                 s.birth_year or '',
                 s.age_bracket,
-                s.completed_at.strftime('%Y-%m-%d %I:%M %p') if s.completed_at else '',
+                s.completed_at.isoformat() if s.completed_at else '',
                 s.difficulty,
                 s.language,
                 s.audio_voice,
@@ -1727,6 +1759,9 @@ def dashboard_export_csv_view(request):
                 f"{r.slowest_latency_ms / 1000:.2f}",
                 f"{r.completion_time_ms / 1000:.1f}",
                 r.clinician_notes or '',
+                s.status,
+                s.started_at.isoformat() if s.started_at else '',
+                'Clinical rounds only; practice excluded',
             ])
 
     return response

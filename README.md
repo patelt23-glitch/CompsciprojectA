@@ -177,3 +177,34 @@ Pre-configured Demo Accounts:
 - **Clinician Login**: `clinician` / `assessment2025` (or `sarah.chen@clinic.org` / `StrongPassword2026!`)
 - **Patient Test Link**: `/patient/sample-patient-token-2025/`
 - **Patient Portal**: `/patient/login/` with any registered patient account
+
+
+### CSV reporting
+
+Clinicians can download a session report from the results page or all completed
+results from the dashboard. Exports remain restricted to the owning clinician.
+
+The session CSV has labeled patient/session information, performance summary,
+round performance, attempt-level data, and clinician notes sections. The dashboard
+CSV has one row per completed session with a saved result. Both use the saved
+`AssessmentResult` values shown in the dashboard/results for overall metrics.
+Practice attempts appear in the detailed report with explicit practice and
+clinical-score inclusion flags; they are excluded from overall clinical scores.
+
+Response-time columns include their units. Attempt data includes round/mode,
+attempt number, selected card indices as JSON, target shape, correctness, response
+time in milliseconds and seconds, and recorded timestamp. Round completion is
+an **estimate**: summed response times plus study time, matching the results page.
+Overall completion uses the stored session completion time and may include pauses
+and practice. Empty rounds have zero attempts/accuracy/average, with blank fastest
+and slowest response times. `Scored Pair Target` is the configured number of pairs
+in clinical rounds, not the number of successful attempts.
+
+Timestamps use ISO 8601 with timezone offsets. CSV files retain a UTF-8 BOM for
+Excel compatibility; the detailed session CSV contains separate tables rather
+than one rectangular dataset. The dashboard table is suitable for bulk analysis.
+No database migration is required.
+
+Verification: `python manage.py test assessment --noinput` checks exports against
+results-page round metrics, saved overall metrics, and dashboard accuracy, as well
+as practice exclusion, empty rounds, attempt serialization, and access control.

@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 from datetime import date, timedelta
 from django.test import TestCase, Client
@@ -274,6 +276,55 @@ class VisuospatialComprehensiveTests(TestCase):
         self.assertIn('Accuracy (%)', dashboard_text)
         self.assertIn('Clinician Notes', dashboard_text)
         self.assertIn('Maintains consistent attention.', dashboard_text)
+
+        single_rows = list(csv.reader(io.StringIO(single_text)))
+        dashboard_rows = list(csv.reader(io.StringIO(dashboard_text)))
+        header_index = next(i for i, row in enumerate(dashboard_rows) if row and row[0] == 'Session ID')
+        exported = dict(zip(dashboard_rows[header_index], dashboard_rows[header_index + 1]))
+        summary_index = single_rows.index(['PERFORMANCE SUMMARY'])
+        summary = {row[0]: row[1] for row in single_rows[summary_index + 3:] if len(row) == 3}
+        self.assertEqual(exported['Accuracy (%)'], summary['Overall Accuracy'])
+        self.assertEqual(exported['Mistakes'], summary['Mistakes'])
+        self.assertEqual(exported['Total Attempts'], summary['Total Attempts'])
+        self.assertEqual(exported['Average Latency (seconds)'], summary['Average Response Time'])
+        self.assertEqual(exported['Completion Time (seconds)'], summary['Completion Time'])
+        self.assertEqual(exported['Date Completed (ISO 8601)'], session.completed_at.isoformat())
+
+        results = self.client.get(f'/results/{session.id}/')
+        self.assertEqual(results.status_code, 200)
+        self.assertEqual(float(exported['Accuracy (%)']), results.context['result'].accuracy_percent)
+        dashboard_page = self.client.get('/dashboard/')
+        self.assertEqual(dashboard_page.status_code, 200)
+        self.assertEqual(float(exported['Accuracy (%)']), dashboard_page.context['avg_accuracy'])
+        round_index = single_rows.index(['ROUND-BY-ROUND PERFORMANCE'])
+        round_row = dict(zip(single_rows[round_index + 1], single_rows[round_index + 2]))
+        displayed_round = results.context['rounds_breakdown'][0]
+        self.assertEqual(float(round_row['Accuracy (%)']), displayed_round['accuracy'])
+        self.assertEqual(float(round_row['Average Response Time (seconds)']), displayed_round['avg_latency_sec'])
+        self.assertEqual(round_row['Estimated Completion Time (seconds)'], '6.200')
+        attempt_index = single_rows.index(['ATTEMPT-LEVEL DATA'])
+        attempt_row = dict(zip(single_rows[attempt_index + 1], single_rows[attempt_index + 2]))
+        self.assertEqual(json.loads(attempt_row['Selected Cards (JSON)']), [0, 1])
+        self.assertEqual(attempt_row['Response Time (seconds)'], '1.200')
+        self.assertEqual(attempt_row['Included in Clinical Score'], 'True')
+
+        # Practice mistakes are visible but do not change stored clinical scores.
+        practice = AssessmentRound.objects.create(session=session, round_number=0, is_practice=True)
+        ResponseEvent.objects.create(round=practice, attempt_number=1, is_correct=False,
+                                     selected_cards=[2, 3], response_latency_ms=9000)
+        AssessmentRound.objects.create(session=session, round_number=2)
+        rows = list(csv.reader(io.StringIO(self.client.get(
+            f'/api/results/{session.id}/export.csv').content.decode('utf-8-sig'))))
+        index = rows.index(['ATTEMPT-LEVEL DATA'])
+        practice_row = dict(zip(rows[index + 1], rows[index + 2]))
+        self.assertEqual(practice_row['Is Practice'], 'True')
+        self.assertEqual(practice_row['Included in Clinical Score'], 'False')
+        self.assertIn(['Overall Accuracy', '75.0', '%'], rows)
+        index = rows.index(['ROUND-BY-ROUND PERFORMANCE'])
+        empty = dict(zip(rows[index + 1], rows[index + 4]))
+        self.assertEqual(empty['Total Attempts'], '0')
+        self.assertEqual(empty['Fastest Response Time (seconds)'], '')
+
 
     def test_cross_clinician_access_forbidden(self):
         """Verify that Clinician B cannot view or export Clinician A's assessment results."""
