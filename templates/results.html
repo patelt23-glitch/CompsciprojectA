@@ -356,6 +356,233 @@
   </div>
 </div>
 
+<!-- Patient Progress Comparison -->
+<div class="card" style="padding: 2rem; margin-bottom: 2rem;">
+  <div style="margin-bottom: 1.25rem;">
+    <span class="eyebrow">PATIENT PROGRESS</span>
+
+    <h3 style="font-size: 1.25rem; margin-top: 0.25rem;">
+      Previous Assessment Comparison
+    </h3>
+
+    <p style="font-size: 0.85rem; margin-top: 0.25rem;">
+      Compare the current result with this participant's most recent completed assessment.
+    </p>
+  </div>
+
+  {% if progress_comparison %}
+
+  <div style="overflow-x: auto;">
+    <table style="
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 620px;
+    ">
+
+      <thead>
+        <tr style="
+          text-align: left;
+          border-bottom: 1px solid var(--border-light);
+        ">
+          <th style="padding: 0.75rem;">Metric</th>
+          <th style="padding: 0.75rem;">Previous</th>
+          <th style="padding: 0.75rem;">Current</th>
+          <th style="padding: 0.75rem;">Change</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+        <tr style="border-bottom: 1px solid var(--border-light);">
+          <td style="padding: 0.75rem; font-weight: 600;">
+            Accuracy
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ progress_comparison.previous_result.accuracy_percent|floatformat:1 }}%
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ result.accuracy_percent|floatformat:1 }}%
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ progress_comparison.accuracy_change|floatformat:1 }} percentage points
+          </td>
+        </tr>
+
+        <tr style="border-bottom: 1px solid var(--border-light);">
+          <td style="padding: 0.75rem; font-weight: 600;">
+            Mistakes
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ progress_comparison.previous_result.mistakes }}
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ result.mistakes }}
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ progress_comparison.mistakes_change }}
+          </td>
+        </tr>
+
+        <tr style="border-bottom: 1px solid var(--border-light);">
+          <td style="padding: 0.75rem; font-weight: 600;">
+            Average Response Time
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ progress_comparison.previous_result.avg_latency_ms|floatformat:0 }} ms
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ result.avg_latency_ms|floatformat:0 }} ms
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ progress_comparison.response_change_ms|floatformat:0 }} ms
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding: 0.75rem; font-weight: 600;">
+            Completion Time
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ progress_comparison.previous_result.completion_time_ms }} ms
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ result.completion_time_ms }} ms
+          </td>
+
+          <td style="padding: 0.75rem;">
+            {{ progress_comparison.completion_change_ms }} ms
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  {% else %}
+
+  <p style="color: var(--text-muted); margin: 0;">
+    No previous completed assessment is available for this participant yet.
+  </p>
+
+  {% endif %}
+</div>
+
+
+<!-- Recent Assessment History -->
+<div class="results-grid-2" style="margin-bottom: 2rem;">
+
+  <div class="card" style="padding: 1.5rem;">
+
+    <h3 style="font-size: 1.15rem;">
+      Recent Assessment History
+    </h3>
+
+    <p style="
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+      margin-bottom: 1rem;
+    ">
+      Up to five recent completed assessments for this participant.
+    </p>
+
+    <div style="overflow-x: auto;">
+
+      <table style="
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 520px;
+      ">
+
+        <thead>
+          <tr style="
+            text-align: left;
+            border-bottom: 1px solid var(--border-light);
+          ">
+            <th style="padding: 0.6rem;">Date</th>
+            <th style="padding: 0.6rem;">Accuracy</th>
+            <th style="padding: 0.6rem;">Mistakes</th>
+            <th style="padding: 0.6rem;">Avg Response</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          {% for history in history_sessions %}
+
+          <tr style="
+            border-bottom: 1px solid var(--border-light);
+          ">
+
+            <td style="padding: 0.6rem;">
+              {{ history.completed_at|default:history.created_at|date:"M j, Y" }}
+            </td>
+
+            <td style="padding: 0.6rem;">
+              {{ history.result.accuracy_percent|floatformat:1 }}%
+            </td>
+
+            <td style="padding: 0.6rem;">
+              {{ history.result.mistakes }}
+            </td>
+
+            <td style="padding: 0.6rem;">
+              {{ history.result.avg_latency_ms|floatformat:0 }} ms
+            </td>
+
+          </tr>
+
+          {% empty %}
+
+          <tr>
+            <td
+              colspan="4"
+              style="padding: 0.75rem; color: var(--text-muted);"
+            >
+              No completed assessment history available.
+            </td>
+          </tr>
+
+          {% endfor %}
+
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+
+
+  <!-- Progress Trend -->
+  <div class="card" style="padding: 1.5rem;">
+
+    <h3 style="font-size: 1.15rem;">
+      Patient Progress Trend
+    </h3>
+
+    <p style="
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+      margin-bottom: 1rem;
+    ">
+      Accuracy and average response time across recent assessments.
+    </p>
+
+    <div id="patient-progress-chart"></div>
+
+  </div>
+
+</div>
+
 <!-- Bottom Section: Clinician Notes & Recommendations (Matches image-2-4.png) -->
 <div class="card" style="padding: 2rem; margin-bottom: 2rem;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -392,6 +619,7 @@
   window.ROUND_COMPARISON = {{ round_comparison_json|safe }};
   window.QUESTIONS_TREND = {{ questions_trend_json|safe }};
   window.ATTENTION_SCORE = {{ attention.score }};
+  window.PATIENT_PROGRESS = {{ progress_chart_json|safe }};
 </script>
 <script src="{% static 'js/results_charts.js' %}"></script>
 {% endblock %}

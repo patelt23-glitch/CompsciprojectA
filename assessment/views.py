@@ -1531,6 +1531,81 @@ def results_view(request, session_id):
             f"The most common error was {common_error['name']} with {common_error['count']} mistakes."
         )
 
+    if session.participant_id:
+        patient_history = AssessmentSession.objects.filter(
+            clinician=session.clinician,
+            status='COMPLETED',
+            participant_id__iexact=session.participant_id,
+            result__isnull=False,
+        ).select_related('result').order_by('completed_at')
+    else:
+        patient_history = AssessmentSession.objects.filter(
+            clinician=session.clinician,
+            status='COMPLETED',
+            patient_code__iexact=session.patient_code,
+            result__isnull=False,
+        ).select_related('result').order_by('completed_at')
+
+    previous_session = None
+
+    for history_session in patient_history:
+        if history_session.id == session.id:
+            break
+        previous_session = history_session
+
+    progress_comparison = None
+
+    if previous_session:
+        previous_result = previous_session.result
+
+        progress_comparison = {
+            'previous_session': previous_session,
+            'previous_result': previous_result,
+            'accuracy_change': round(
+                result.accuracy_percent - previous_result.accuracy_percent,
+                1
+            ),
+            'mistakes_change': (
+                result.mistakes - previous_result.mistakes
+            ),
+            'response_change': round(
+                (
+                    result.avg_latency_ms
+                    - previous_result.avg_latency_ms
+                ) / 1000.0,
+                2
+            ),
+            'completion_change': round(
+                (
+                    result.completion_time_ms
+                    - previous_result.completion_time_ms
+                ) / 1000.0,
+                1
+            ),
+        }
+
+    history_sessions = list(patient_history)[-5:]
+
+    progress_chart = []
+
+    for history_session in history_sessions:
+        progress_chart.append({
+            'date': (
+                history_session.completed_at.strftime('%b %d')
+                if history_session.completed_at
+                else ''
+            ),
+            'accuracy': round(
+                history_session.result.accuracy_percent,
+                1
+            ),
+            'response_sec': round(
+                history_session.result.avg_latency_ms / 1000.0,
+                2
+            ),
+            'mistakes': history_session.result.mistakes,
+        })  
+
     context = {
         'session': session,
         'result': result,
@@ -1546,6 +1621,9 @@ def results_view(request, session_id):
         'completion_time_str': completion_time_str,
         'error_rate_pct': error_rate_pct,
         'review_summary': review_summary,
+        'progress_comparison': progress_comparison,
+        'history_sessions': history_sessions,
+        'progress_chart_json': json.dumps(progress_chart),
     }
     return render(request, 'results.html', context)
 
