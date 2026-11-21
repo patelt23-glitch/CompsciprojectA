@@ -35,33 +35,21 @@
           <li><a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a></li>
           <li><a href="/#about" class="nav-link">About</a></li>
           <li><a href="/#info" class="nav-link">Info</a></li>
-          {% if user.is_authenticated %}
-            {% if user.patient_profile %}
-              <li><a href="/patient/history/" class="nav-link {% if 'patient/history' in request.path %}active{% endif %}">My Tests</a></li>
-            {% else %}
-              <li><a href="/dashboard/" class="nav-link {% if 'dashboard' in request.path %}active{% endif %}">Dashboard</a></li>
-              <li><a href="/profile/" class="nav-link {% if 'profile' in request.path %}active{% endif %}">Profile</a></li>
-            {% endif %}
-          {% else %}
-            <li><a href="/patient/login/" class="nav-link {% if 'patient' in request.path %}active{% endif %}">Patient Portal</a></li>
-          {% endif %}
+        
+          
         </ul>
       </nav>
 
       <div>
         {% if user.is_authenticated %}
           <div style="display: flex; align-items: center; gap: 0.75rem;">
-            {% if user.patient_profile %}
-              <a href="/patient/history/" class="btn btn-secondary btn-sm" title="View my tests">Patient {{ user.patient_profile.patient_code }}</a>
-              <a href="/patient/logout/" class="btn btn-secondary btn-sm">Sign out</a>
-            {% else %}
-              <a href="/profile/" class="btn btn-secondary btn-sm" title="View clinician profile">{{ user.profile.display_name|default:user.username }}</a>
-              <a href="/logout/" class="btn btn-secondary btn-sm">Sign out</a>
-            {% endif %}
+            <a href="/profile/" class="btn btn-secondary btn-sm" title="View clinician profile">
+              {{ user.profile.display_name|default:user.username }}
+            </a>
+            <a href="/logout/" class="btn btn-secondary btn-sm">Sign out</a>
           </div>
         {% else %}
           <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            <a href="/patient/login/" class="btn btn-secondary btn-sm">Patient Portal</a>
             <a href="/login/" class="btn btn-secondary btn-sm">Clinician Sign In</a>
             <a href="/signup/" class="btn btn-primary btn-sm">Register</a>
           </div>
