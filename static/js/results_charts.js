@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderResponseTrendLine();
   renderMemoryTrendLine();
   renderAttentionGauge();
+  renderPatientProgressTrend();
   initNotesEditor();
 });
 
@@ -320,4 +321,202 @@ function initNotesEditor() {
       alert('Could not save notes. Please try again.');
     });
   });
+}
+// Repeated Assessment Progress Trend
+function renderPatientProgressTrend() {
+
+  const container =
+    document.getElementById('patient-progress-chart');
+
+  if (!container) return;
+
+  const data =
+    window.PATIENT_PROGRESS || [];
+
+  if (data.length === 0) {
+
+    container.innerHTML = `
+      <p style="
+        color: var(--text-muted);
+        font-size: 0.85rem;
+      ">
+        No completed assessment history available.
+      </p>
+    `;
+
+    return;
+  }
+
+  const width = 420;
+  const height = 190;
+
+  const padLeft = 38;
+  const padRight = 18;
+  const padTop = 18;
+  const padBottom = 35;
+
+  const chartW =
+    width - padLeft - padRight;
+
+  const chartH =
+    height - padTop - padBottom;
+
+  const points = data.map(
+    (item, index) => {
+
+      const x =
+        data.length > 1
+          ? padLeft +
+            (index / (data.length - 1)) *
+            chartW
+          : padLeft + chartW * 0.5;
+
+      const accuracy =
+        Math.max(
+          0,
+          Math.min(100, item.accuracy)
+        );
+
+      const y =
+        padTop +
+        chartH -
+        (accuracy / 100) *
+        chartH;
+
+      return {
+        ...item,
+        x,
+        y
+      };
+    }
+  );
+
+  const line =
+    points
+      .map(
+        point =>
+          `${point.x.toFixed(1)},${point.y.toFixed(1)}`
+      )
+      .join(' ');
+
+  container.innerHTML = `
+
+    <svg
+      viewBox="0 0 ${width} ${height}"
+      style="width: 100%; height: auto;"
+    >
+
+      <line
+        x1="${padLeft}"
+        y1="${padTop}"
+        x2="${padLeft}"
+        y2="${padTop + chartH}"
+        stroke="#e2e8f0"
+      />
+
+      <line
+        x1="${padLeft}"
+        y1="${padTop + chartH}"
+        x2="${width - padRight}"
+        y2="${padTop + chartH}"
+        stroke="#cbd5e1"
+      />
+
+      <text
+        x="${padLeft - 7}"
+        y="${padTop + 4}"
+        font-size="10"
+        fill="#94a3b8"
+        text-anchor="end"
+      >
+        100%
+      </text>
+
+      <text
+        x="${padLeft - 7}"
+        y="${padTop + chartH / 2 + 4}"
+        font-size="10"
+        fill="#94a3b8"
+        text-anchor="end"
+      >
+        50%
+      </text>
+
+      <text
+        x="${padLeft - 7}"
+        y="${padTop + chartH + 4}"
+        font-size="10"
+        fill="#94a3b8"
+        text-anchor="end"
+      >
+        0%
+      </text>
+
+      <polyline
+        points="${line}"
+        fill="none"
+        stroke="#4f46e5"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+
+      ${points.map(point => `
+
+        <circle
+          cx="${point.x.toFixed(1)}"
+          cy="${point.y.toFixed(1)}"
+          r="4"
+          fill="#4f46e5"
+        >
+
+          <title>
+            ${point.date}:
+            ${point.accuracy}% accuracy,
+            ${point.response_sec}s average response,
+            ${point.mistakes} mistakes
+          </title>
+
+        </circle>
+
+        <text
+          x="${point.x.toFixed(1)}"
+          y="${height - 10}"
+          font-size="9"
+          fill="#94a3b8"
+          text-anchor="middle"
+        >
+          ${point.date}
+        </text>
+
+      `).join('')}
+
+    </svg>
+
+    <div style="
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    ">
+
+      <span>
+        <strong>Latest:</strong>
+        ${data[data.length - 1].accuracy}% accuracy
+      </span>
+
+      <span>
+        <strong>Avg response:</strong>
+        ${data[data.length - 1].response_sec}s
+      </span>
+
+      <span>
+        <strong>Mistakes:</strong>
+        ${data[data.length - 1].mistakes}
+      </span>
+
+    </div>
+  `;
 }
